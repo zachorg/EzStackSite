@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const protectedPrefixes = ["/playground", "/dashboard"];
+const protectedPrefixes = ["/account"];
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -10,19 +10,21 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const apiKey = req.cookies.get("ezauth_api_key")?.value;
-  if (!apiKey) {
+  const sessionCookie = req.cookies.get("__session")?.value;
+  if (!sessionCookie) {
     const url = req.nextUrl.clone();
-    url.pathname = "/settings";
+    url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
+
+  // No additional API key requirement; account page manages keys itself
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/playground/:path*", "/dashboard/:path*"],
+  matcher: ["/account"],
 };
 
 

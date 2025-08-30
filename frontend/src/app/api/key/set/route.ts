@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { setApiKeyCookie } from "@/lib/cookies";
+import { adminAuth, db } from "@/lib/firebase/admin";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +15,16 @@ export async function POST(req: Request) {
     }
 
     await setApiKeyCookie(value);
+
+    // If logged in, also store to Firestore
+    try {
+      const cookieStore = await cookies();
+      const sessionCookie = cookieStore.get("__session")?.value;
+      if (sessionCookie) {
+        const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+        await db.collection("users").doc(decoded.uid).set({ apiKey: value }, { merge: true });
+      }
+    } catch {}
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

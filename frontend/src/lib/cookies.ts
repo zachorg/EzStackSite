@@ -23,4 +23,25 @@ export async function clearApiKeyCookie(): Promise<void> {
   cookieStore.delete(COOKIE_NAMES.apiKey);
 }
 
+export async function getSessionIdFromCookies(): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  return cookieStore.get(COOKIE_NAMES.session)?.value || undefined;
+}
+
+export async function setSessionCookie(sessionId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAMES.session, sessionId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  });
+}
+
+export async function clearSessionCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAMES.session);
+}
+
 

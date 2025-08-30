@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import ProfileMenu from "./components/ProfileMenu";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,10 +32,13 @@ export default function RootLayout({
         <div className="p-4 border-b">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <Link href="/" className="font-semibold">EzStack</Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/settings">Settings</Link>
-              <Link href="/playground">Playground</Link>
-            </nav>
+            <div className="flex items-center gap-4">
+              <nav className="hidden sm:flex gap-4 text-sm">
+                <Link href="/docs">Docs</Link>
+                <Link href="/account">Account</Link>
+              </nav>
+              <ProfileMenu />
+            </div>
           </div>
         </div>
         <div className="max-w-6xl mx-auto p-6">{children}</div>

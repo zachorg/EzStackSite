@@ -4,6 +4,7 @@ export const EZAUTH_API_VERSION = "/v1";
 
 export const COOKIE_NAMES = {
   apiKey: "ezauth_api_key",
+  session: "console_session",
 } as const;
 
 export function getBackendUrl(path: string): string {

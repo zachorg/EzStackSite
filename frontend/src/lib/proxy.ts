@@ -1,10 +1,24 @@
 import { NextRequest } from "next/server";
 import { getBackendUrl } from "./config";
 import { cookies } from "next/headers";
+import { adminAuth, db } from "@/lib/firebase/admin";
 
 export async function proxyJsonPost(req: NextRequest, path: string): Promise<Response> {
   const cookieStore = await cookies();
-  const apiKey = cookieStore.get("ezauth_api_key")?.value;
+  let apiKey = cookieStore.get("ezauth_api_key")?.value;
+
+  // If missing in cookie, try Firestore based on Firebase session
+  if (!apiKey) {
+    const sessionCookie = cookieStore.get("__session")?.value;
+    if (sessionCookie) {
+      try {
+        const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+        const doc = await db.collection("users").doc(decoded.uid).get();
+        apiKey = doc.get("apiKey");
+      } catch {}
+    }
+  }
+
   if (!apiKey) {
     return new Response(
       JSON.stringify({ error: { code: "unauthorized", message: "Missing API key" } }),

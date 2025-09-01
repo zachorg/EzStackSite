@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { setApiKeyCookie } from "@/lib/cookies";
 import { adminAuth, db } from "@/lib/firebase/admin";
 import { cookies } from "next/headers";
 
@@ -22,10 +21,18 @@ export async function POST() {
   const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
   const apiKey = createPseudoApiKey(decoded.uid);
 
-  // Persist in Firestore per user
-  await db.collection("users").doc(decoded.uid).set({ apiKey }, { merge: true });
-  await setApiKeyCookie(apiKey);
+  // Do not store plaintext API keys. Persist only metadata.
+  await db
+    .collection("users")
+    .doc(decoded.uid)
+    .set(
+      {
+        lastGeneratedKeyAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
 
+  // Return key once to the caller to display. Caller should avoid storing plaintext.
   return NextResponse.json({ ok: true, apiKey });
 }
 

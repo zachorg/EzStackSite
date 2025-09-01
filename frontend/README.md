@@ -1,10 +1,11 @@
-EzStack Console: Frontend for EzAuth OTP/OTE and future modules.
+EzStack Console: Frontend for EzStack OTP/OTE and future modules.
 
 Quickstart
 
 1. Set environment variables (optional):
 
-   - `EZAUTH_BASE_URL` (default `http://localhost:8080`)
+   - Firebase client config: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - Firebase Admin creds for local dev: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
 
 2. Run the dev server:
 
@@ -14,14 +15,14 @@ npm run dev
 
 3. In the app:
 
-   - Go to `/settings` and paste your `x-ezauth-key`. It is stored as an HttpOnly cookie.
-   - Use `/playground` to send/verify/resend OTP (sms/email) or OTE (email) codes.
+   - Sign in with Google, then go to `/account` to generate an API key. Keys are displayed once and not stored in plaintext.
+   - Use `/playground` to send/verify/resend OTP (sms/email) or OTE (email) codes via `/api/proxy/*`.
 
 Implementation notes
 
-- Requests are proxied via Next.js API routes and attach `x-ezauth-key` from the cookie.
-- Rate-limit headers like `Retry-After` and `X-RateLimit-Reset` are forwarded for UX.
-- Protected routes (playground, dashboard) require the API key cookie and redirect to `/settings` if missing.
+- All browser requests go to Firebase HTTPS Functions at `/api/proxy/*` with `Authorization: Bearer <Firebase ID token>`.
+- The proxy forwards to EzStack API over TLS and may inject `x-ezauth-key` or an ephemeral token; no CORS is required on the API.
+- Rate-limit headers like `Retry-After` and `X-RateLimit-Reset` should be surfaced by the proxy for UX.
 
 Stripe (optional)
 

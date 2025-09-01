@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getClientAuth } from "@/lib/firebase/client";
 
 export default function AccountPage() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -22,7 +23,20 @@ export default function AccountPage() {
   async function generateKey() {
     setMessage(null);
     try {
-      const res = await fetch("/api/key/generate", { method: "POST" });
+      const auth = await getClientAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        window.location.href = "/login?redirect=/account";
+        return;
+      }
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/proxy/key/generate", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${idToken}`,
+        },
+      });
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 401) {
@@ -31,7 +45,7 @@ export default function AccountPage() {
         }
         setMessage(data?.error?.message || "Failed to generate key");
       } else {
-        setMessage("API key generated and stored.");
+        setMessage("API key generated. It is shown once; store it securely.");
       }
     } catch {
       setMessage("Network error");
@@ -43,7 +57,7 @@ export default function AccountPage() {
     try {
       const res = await fetch("/api/key/clear", { method: "POST" });
       if (!res.ok) setMessage("Failed to clear key");
-      else setMessage("Key cleared.");
+      else setMessage("Key cleared (no plaintext stored).");
     } catch {
       setMessage("Network error");
     }

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { clearApiKeyCookie } from "@/lib/cookies";
 
 export async function POST() {
-  await clearApiKeyCookie();
+  // No-op: plaintext API key cookie is deprecated and removed.
   return NextResponse.json({ ok: true });
 }
 

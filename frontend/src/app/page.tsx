@@ -33,8 +33,8 @@ export default function Home() {
           <h3 className="text-xl font-semibold mb-2">OTP & OTE out of the box</h3>
           <p className="text-foreground/80">
             Production-grade email/SMS one-time codes with resend and verify endpoints
-            ready to call. Just POST to <code className="font-mono">/api/otp</code> or
-            <code className="font-mono">/api/ote</code>.
+            ready to call. From the browser, call <code className="font-mono">/api/proxy/otp</code> or
+            <code className="font-mono">/api/proxy/ote</code>.
           </p>
         </div>
         <div className="rounded-xl border border-black/[.08] dark:border-white/[.145] p-6">
@@ -77,15 +77,15 @@ export default function Home() {
         <div className="mt-4">
           <pre className="bg-black/[.05] dark:bg-white/[.06] rounded-lg p-4 overflow-x-auto text-xs">
             <code className="font-mono">
-{`// Send a one-time code
-await fetch('/api/otp/send', {
+{`// Send a one-time code via Firebase Function proxy
+await fetch('/api/proxy/otp/send', {
   method: 'POST',
   body: JSON.stringify({ to: email }),
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Verify the code
-const res = await fetch('/api/otp/verify', {
+// Verify the code via Firebase Function proxy
+const res = await fetch('/api/proxy/otp/verify', {
   method: 'POST',
   body: JSON.stringify({ to: email, code }),
   headers: { 'Content-Type': 'application/json' },

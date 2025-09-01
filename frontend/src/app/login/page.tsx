@@ -22,7 +22,7 @@ export default function LoginPage() {
       const provider = await getGoogleProvider();
       const { signInWithPopup } = await import("firebase/auth");
       const cred = await signInWithPopup(auth, provider);
-      const idToken = await cred.user.getIdToken();
+      const idToken = await cred.user.getIdToken(true);
       const res = await fetch("/api/session/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -35,7 +35,9 @@ export default function LoginPage() {
         window.location.href = redirect || "/settings";
       }
     } catch (e) {
-      setMessage("Sign-in failed");
+      setMessage(
+        e instanceof Error ? e.message : "Sign-in failed. Check Firebase config env vars."
+      );
     } finally {
       setLoading(false);
     }

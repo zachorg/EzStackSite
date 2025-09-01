@@ -1,12 +1,22 @@
 let initializedApp: import("firebase/app").FirebaseApp | null = null;
 
-function getConfig() {
-  const config: import("firebase/app").FirebaseOptions = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
-  };
-  return config;
+function getConfig(): import("firebase/app").FirebaseOptions {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+  if (!apiKey || !authDomain || !projectId) {
+    const missing = [
+      !apiKey ? "NEXT_PUBLIC_FIREBASE_API_KEY" : null,
+      !authDomain ? "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" : null,
+      !projectId ? "NEXT_PUBLIC_FIREBASE_PROJECT_ID" : null,
+    ].filter(Boolean);
+    throw new Error(
+      `Firebase client config missing: ${missing.join(", ")}. Check your environment variables.`
+    );
+  }
+
+  return { apiKey, authDomain, projectId };
 }
 
 export async function getClientAuth() {
@@ -28,5 +38,4 @@ export async function getGoogleProvider() {
   const { GoogleAuthProvider } = await import("firebase/auth");
   return new GoogleAuthProvider();
 }
-
 

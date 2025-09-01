@@ -4,13 +4,20 @@ import { getFirestore } from "firebase-admin/firestore";
 
 let app: App | undefined;
 
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env: ${name}`);
+  return value;
+}
+
 if (!getApps().length) {
+  const projectId = getRequiredEnv("FIREBASE_PROJECT_ID");
+  const clientEmail = getRequiredEnv("FIREBASE_CLIENT_EMAIL");
+  const rawPrivateKey = getRequiredEnv("FIREBASE_PRIVATE_KEY");
+  const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
+
   app = initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
-    }),
+    credential: cert({ projectId, clientEmail, privateKey }),
   });
 } else {
   app = getApps()[0] as App;

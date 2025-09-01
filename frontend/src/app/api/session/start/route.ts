@@ -13,7 +13,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const decoded = await adminAuth.verifyIdToken(idToken);
+    const decoded = await adminAuth.verifyIdToken(idToken).catch((e) => {
+      throw new Error("verifyIdToken_failed");
+    });
     const expiresInMs = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: expiresInMs });
 
@@ -28,10 +30,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, uid: decoded.uid });
   } catch (err) {
-    return NextResponse.json(
-      { error: { code: "unauthorized", message: "Invalid token" } },
-      { status: 401 }
-    );
+    const msg =
+      err instanceof Error && err.message === "verifyIdToken_failed"
+        ? "Invalid or expired Google sign-in token"
+        : "Session creation failed";
+    const code =
+      err instanceof Error && err.message === "verifyIdToken_failed"
+        ? "unauthorized"
+        : "internal_error";
+    const status = code === "unauthorized" ? 401 : 500;
+    return NextResponse.json({ error: { code, message: msg } }, { status });
   }
 }
 

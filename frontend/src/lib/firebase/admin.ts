@@ -11,10 +11,15 @@ function getRequiredEnv(name: string): string {
 }
 
 if (!getApps().length) {
-  const projectId = getRequiredEnv("FIREBASE_PROJECT_ID");
-  const clientEmail = getRequiredEnv("FIREBASE_CLIENT_EMAIL");
+  const projectId = getRequiredEnv("FIREBASE_PROJECT_ID").trim();
+  const clientEmail = getRequiredEnv("FIREBASE_CLIENT_EMAIL").trim();
   const rawPrivateKey = getRequiredEnv("FIREBASE_PRIVATE_KEY");
-  const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
+  const privateKey = rawPrivateKey
+    // Convert literal \n to newlines
+    .replace(/\\n/g, "\n")
+    // Trim surrounding quotes if present
+    .replace(/^"([\s\S]*)"$/m, "$1")
+    .replace(/^'([\s\S]*)'$/m, "$1");
 
   app = initializeApp({
     credential: cert({ projectId, clientEmail, privateKey }),

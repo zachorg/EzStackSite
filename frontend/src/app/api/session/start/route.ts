@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
-import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
@@ -13,14 +12,36 @@ export async function POST(req: Request) {
       );
     }
 
-    const decoded = await adminAuth.verifyIdToken(idToken).catch((e) => {
-      throw new Error("verifyIdToken_failed");
-    });
+    let decoded: import("firebase-admin/auth").DecodedIdToken;
+    try {
+      decoded = await adminAuth.verifyIdToken(idToken);
+    } catch (e) {
+      return NextResponse.json(
+        { error: { code: "unauthorized", message: "Invalid or expired sign-in token" } },
+        { status: 401 }
+      );
+    }
     const expiresInMs = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: expiresInMs });
+    let sessionCookie: string;
+    try {
+      sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: expiresInMs });
+    } catch (e) {
+      const isDev = process.env.NODE_ENV !== "production";
+      const detail = e instanceof Error ? e.message : String(e);
+      return NextResponse.json(
+        {
+          error: {
+            code: "internal_error",
+            message: "Session creation failed",
+            ...(isDev ? { detail } : {}),
+          },
+        },
+        { status: 500 }
+      );
+    }
 
-    const cookieStore = await cookies();
-    cookieStore.set("__session", sessionCookie, {
+    const res = NextResponse.json({ ok: true, uid: decoded.uid });
+    res.cookies.set("__session", sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -28,18 +49,20 @@ export async function POST(req: Request) {
       maxAge: Math.floor(expiresInMs / 1000),
     });
 
-    return NextResponse.json({ ok: true, uid: decoded.uid });
+    return res;
   } catch (err) {
-    const msg =
-      err instanceof Error && err.message === "verifyIdToken_failed"
-        ? "Invalid or expired Google sign-in token"
-        : "Session creation failed";
-    const code =
-      err instanceof Error && err.message === "verifyIdToken_failed"
-        ? "unauthorized"
-        : "internal_error";
-    const status = code === "unauthorized" ? 401 : 500;
-    return NextResponse.json({ error: { code, message: msg } }, { status });
+    const isDev = process.env.NODE_ENV !== "production";
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      {
+        error: {
+          code: "internal_error",
+          message: "Session creation failed",
+          ...(isDev ? { detail } : {}),
+        },
+      },
+      { status: 500 }
+    );
   }
 }
 

@@ -7,6 +7,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [redirect, setRedirect] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -26,17 +28,73 @@ export default function LoginPage() {
       const res = await fetch("/api/session/start", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ idToken }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage(data?.error?.message || "Failed to create session");
+        const detail = data?.error?.detail ? ` (${data.error.detail})` : "";
+        setMessage((data?.error?.message || "Failed to create session") + detail);
       } else {
         window.location.href = redirect || "/settings";
       }
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : "Sign-in failed. Check Firebase config env vars."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startSessionWithCurrentUser() {
+    const auth = await getClientAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("No authenticated user");
+    const idToken = await currentUser.getIdToken(true);
+    const res = await fetch("/api/session/start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data?.error?.detail ? ` (${data.error.detail})` : "";
+      throw new Error((data?.error?.message || "Failed to create session") + detail);
+    }
+  }
+
+  async function signUpWithEmailPassword() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const auth = await getClientAuth();
+      const { createUserWithEmailAndPassword } = await import("firebase/auth");
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await startSessionWithCurrentUser();
+      window.location.href = redirect || "/settings";
+    } catch (e) {
+      setMessage(
+        e instanceof Error ? e.message : "Account creation failed. Check email and password."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function signInWithEmailPassword() {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const auth = await getClientAuth();
+      const { signInWithEmailAndPassword } = await import("firebase/auth");
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await startSessionWithCurrentUser();
+      window.location.href = redirect || "/settings";
+    } catch (e) {
+      setMessage(
+        e instanceof Error ? e.message : "Sign-in failed. Check your credentials."
       );
     } finally {
       setLoading(false);
@@ -56,6 +114,43 @@ export default function LoginPage() {
       >
         Continue with Google
       </button>
+      <div className="pt-4 space-y-2">
+        <p className="text-sm text-foreground/70">Or use email and password</p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="w-full px-3 py-2 border rounded"
+          disabled={loading}
+          autoComplete="email"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Your password"
+          className="w-full px-3 py-2 border rounded"
+          disabled={loading}
+          autoComplete="current-password"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={signUpWithEmailPassword}
+            disabled={loading || !email || !password}
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          >
+            Create account
+          </button>
+          <button
+            onClick={signInWithEmailPassword}
+            disabled={loading || !email || !password}
+            className="px-4 py-2 bg-gray-900 text-white rounded disabled:opacity-50"
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
       {message && <p className="text-sm text-gray-600">{message}</p>}
     </div>
   );

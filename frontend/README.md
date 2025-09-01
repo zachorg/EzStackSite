@@ -15,8 +15,8 @@ npm run dev
 
 3. In the app:
 
-   - Sign in with Google, then go to `/account` to generate an API key. Keys are displayed once and not stored in plaintext.
-   - Use `/playground` to send/verify/resend OTP (sms/email) or OTE (email) codes via `/api/proxy/*`.
+   - Sign in at `/login`, then go to `/account` to generate an API key. Keys are displayed once and not stored in plaintext.
+   - Configure your project in `/settings`. OTP/OTE playground has been removed from the UI.
 
 Implementation notes
 

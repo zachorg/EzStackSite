@@ -14,27 +14,26 @@ export default function Home() {
         </p>
         <div className="flex gap-3 justify-center sm:justify-start">
           <Link
-            href="/playground"
+            href="/login"
             className="rounded-full border border-transparent bg-foreground text-background px-5 h-12 inline-flex items-center justify-center text-sm sm:text-base font-medium hover:bg-[#383838] dark:hover:bg-[#ccc]"
           >
-            Try the Playground
+            Sign in
           </Link>
           <Link
             href="/settings"
             className="rounded-full border border-black/[.08] dark:border-white/[.145] px-5 h-12 inline-flex items-center justify-center text-sm sm:text-base font-medium hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a]"
           >
-            Configure Settings
+            Open settings
           </Link>
         </div>
       </section>
 
       <section className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-black/[.08] dark:border-white/[.145] p-6">
-          <h3 className="text-xl font-semibold mb-2">OTP & OTE out of the box</h3>
+          <h3 className="text-xl font-semibold mb-2">Google & Email sign-in</h3>
           <p className="text-foreground/80">
-            Production-grade email/SMS one-time codes with resend and verify endpoints
-            ready to call. From the browser, call <code className="font-mono">/api/proxy/otp</code> or
-            <code className="font-mono">/api/proxy/ote</code>.
+            Built-in auth flows for Google and email/password with secure server-side
+            sessions using HTTP-only cookies.
           </p>
         </div>
         <div className="rounded-xl border border-black/[.08] dark:border-white/[.145] p-6">
@@ -61,38 +60,21 @@ export default function Home() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">How it works</h2>
+        <h2 className="text-2xl font-semibold">Get started</h2>
         <ol className="list-decimal list-inside space-y-2 text-foreground/90">
           <li>
-            Configure your API keys and settings in the console at
-            <span className="font-mono"> /settings</span>.
+            Sign in at <span className="font-mono">/login</span> with Google or email.
           </li>
           <li>
-            Trigger OTP or OTE from your app using the built-in API routes.
+            Configure your project in <span className="font-mono">/settings</span>.
           </li>
           <li>
-            Verify the code and complete sign-in or sensitive actions.
+            Add payments and protected routes as needed.
           </li>
         </ol>
-        <div className="mt-4">
-          <pre className="bg-black/[.05] dark:bg-white/[.06] rounded-lg p-4 overflow-x-auto text-xs">
-            <code className="font-mono">
-{`// Send a one-time code via Firebase Function proxy
-await fetch('/api/proxy/otp/send', {
-  method: 'POST',
-  body: JSON.stringify({ to: email }),
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// Verify the code via Firebase Function proxy
-const res = await fetch('/api/proxy/otp/verify', {
-  method: 'POST',
-  body: JSON.stringify({ to: email, code }),
-  headers: { 'Content-Type': 'application/json' },
-});
-if (!res.ok) throw new Error('Invalid code');`}
-            </code>
-          </pre>
+        <div className="mt-4 text-sm text-foreground/70">
+          Ready-made APIs and UI blocks speed up your launch. Explore the code in
+          <span className="font-mono"> src/app</span> and <span className="font-mono"> src/lib</span>.
         </div>
       </section>
     </div>

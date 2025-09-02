@@ -25,7 +25,7 @@ export default function Home() {
             Get started
           </Link>
           <Link
-            href="/docs/ezauth/overview"
+            href="/docs"
             className="rounded-full border border-black/[.08] dark:border-white/[.145] px-5 h-12 inline-flex items-center justify-center text-sm sm:text-base font-medium hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a]"
           >
             Explore docs

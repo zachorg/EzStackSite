@@ -35,7 +35,7 @@ export default function RootLayout({
             <div className="flex items-center gap-4">
               <nav className="hidden sm:flex gap-4 text-sm">
                 <Link href="/docs">Docs</Link>
-                <Link href="/account">Account</Link>
+                <Link href="/analytics">Analytics</Link>
               </nav>
               <ProfileMenu />
             </div>

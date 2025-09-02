@@ -1,3 +1,4 @@
+// Lightweight endpoint used by the UI to check if a valid session cookie exists.
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { cookies } from "next/headers";

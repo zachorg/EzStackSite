@@ -16,6 +16,7 @@ export default function LoginPage() {
     if (r) setRedirect(r);
   }, []);
 
+  // Sign in with Google using a popup, then exchange the ID token for a session cookie.
   async function signInGoogle() {
     setLoading(true);
     setMessage(null);
@@ -47,6 +48,7 @@ export default function LoginPage() {
     }
   }
 
+  // Helper to exchange the currently signed-in Firebase user for a server session.
   async function startSessionWithCurrentUser() {
     const auth = await getClientAuth();
     const currentUser = auth.currentUser;
@@ -65,6 +67,7 @@ export default function LoginPage() {
     }
   }
 
+  // Create an account with email/password and start a session.
   async function signUpWithEmailPassword() {
     setLoading(true);
     setMessage(null);
@@ -83,6 +86,7 @@ export default function LoginPage() {
     }
   }
 
+  // Sign in with email/password and start a session.
   async function signInWithEmailPassword() {
     setLoading(true);
     setMessage(null);

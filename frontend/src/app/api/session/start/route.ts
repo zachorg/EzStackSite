@@ -1,3 +1,5 @@
+// Creates a signed session cookie from a Firebase ID token.
+// Called after client completes Google or Email/Password sign-in.
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 

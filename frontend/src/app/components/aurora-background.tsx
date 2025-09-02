@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+// Full-viewport animated gradient backdrop used across the homepage.
 type AuroraBackgroundProps = {
   className?: string;
 };

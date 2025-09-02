@@ -1,3 +1,4 @@
+// Final call-to-action band used at the bottom of the homepage.
 import Link from "next/link";
 
 export function CtaBand() {

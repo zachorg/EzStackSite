@@ -1,5 +1,12 @@
+// Firebase Web SDK initialization for client-side usage only.
+// Reads from NEXT_PUBLIC_* env vars which Next.js inlines at build time.
+// We memoize the app instance to avoid re-initializing across renders.
 let initializedApp: import("firebase/app").FirebaseApp | null = null;
 
+/**
+ * Resolve client Firebase options from env. Throws early if missing to help devs
+ * fix their .env.local. Only fields required by our auth flow are included.
+ */
 function getConfig(): import("firebase/app").FirebaseOptions {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
@@ -19,6 +26,10 @@ function getConfig(): import("firebase/app").FirebaseOptions {
   return { apiKey, authDomain, projectId };
 }
 
+/**
+ * Returns a configured Firebase Auth instance. Must run in the browser.
+ * We lazy-import to keep server bundles smaller and avoid SSR pitfalls.
+ */
 export async function getClientAuth() {
   if (typeof window === "undefined") {
     throw new Error("getClientAuth can only be called in the browser");
@@ -34,6 +45,7 @@ export async function getClientAuth() {
   return getAuth(initializedApp!);
 }
 
+/** Google provider factory kept separate to avoid importing on pages that don't need it. */
 export async function getGoogleProvider() {
   const { GoogleAuthProvider } = await import("firebase/auth");
   return new GoogleAuthProvider();

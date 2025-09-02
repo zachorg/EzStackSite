@@ -1,3 +1,4 @@
+// Responsive cards sourcing content from config to keep layout extensible.
 import Link from "next/link";
 import { productTiles, type ProductTile } from "../../lib/products";
 

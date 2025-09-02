@@ -1,3 +1,4 @@
+// Clears the session cookie. Client should call this on sign-out.
 import { NextResponse } from "next/server";
 
 export async function POST() {

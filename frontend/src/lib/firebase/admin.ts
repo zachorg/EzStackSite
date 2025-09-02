@@ -1,9 +1,12 @@
+// Firebase Admin SDK single-instance initialization for server-only code.
+// Reads service account credentials from env; private key tolerates quoted/escaped formats.
 import { App, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
 let app: App | undefined;
 
+/** Fetch required server env var or throw a descriptive error. */
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env: ${name}`);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+// Simple tabbed code viewer for hero. No live requests; copy/paste ready.
 type TabKey = "curl" | "node" | "python";
 
 const snippets: Record<TabKey, string> = {

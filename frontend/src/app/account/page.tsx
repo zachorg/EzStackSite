@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getClientAuth } from "@/lib/firebase/client";
 
+// Basic account page: generates an API key via backend proxy after verifying session.
 export default function AccountPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -52,17 +53,6 @@ export default function AccountPage() {
     }
   }
 
-  async function clearKey() {
-    setMessage(null);
-    try {
-      const res = await fetch("/api/key/clear", { method: "POST" });
-      if (!res.ok) setMessage("Failed to clear key");
-      else setMessage("Key cleared (no plaintext stored).");
-    } catch {
-      setMessage("Network error");
-    }
-  }
-
   if (loading) return <div className="p-6">Loading…</div>;
 
   if (!loggedIn) {
@@ -86,14 +76,9 @@ export default function AccountPage() {
           <button onClick={generateKey} className="px-4 py-2 bg-black text-white rounded">
             Generate API key
           </button>
-          <button onClick={clearKey} className="px-4 py-2 border rounded">
-            Clear API key
-          </button>
         </div>
         {message && <p className="text-sm">{message}</p>}
       </div>
     </div>
   );
 }
-
-

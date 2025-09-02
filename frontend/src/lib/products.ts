@@ -1,3 +1,5 @@
+// Product tiles drive the "Bento" grid on the homepage.
+// Adding a new tile here automatically updates the UI.
 import type { ComponentType } from "react";
 import { type LucideIcon, ShieldCheck, CreditCard, LineChart } from "lucide-react";
 

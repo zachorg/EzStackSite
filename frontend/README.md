@@ -24,6 +24,12 @@ Implementation notes
 - The proxy forwards to EzStack API over TLS and may inject `x-ezauth-key` or an ephemeral token; no CORS is required on the API.
 - Rate-limit headers like `Retry-After` and `X-RateLimit-Reset` should be surfaced by the proxy for UX.
 
+Adding a product tile
+
+1. Edit `src/lib/products.ts` and add a new object to `productTiles`.
+2. Provide: `slug`, `title`, `status`, `description`, `bullets`, `icon`, and links.
+3. The `BentoGrid` reads this array and renders cards automatically; layout spans can be set via `span`.
+
 Stripe (optional)
 
 - Set `STRIPE_SECRET_KEY` and plan price IDs:

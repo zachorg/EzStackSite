@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       }
     } catch {}
     return NextResponse.json({ ok: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: "validation_error", message: "Invalid JSON body" } },
       { status: 400 }

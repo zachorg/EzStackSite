@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     let decoded: import("firebase-admin/auth").DecodedIdToken;
     try {
       decoded = await adminAuth.verifyIdToken(idToken);
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: { code: "unauthorized", message: "Invalid or expired sign-in token" } },
         { status: 401 }

@@ -8,6 +8,9 @@ export default function AccountPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -21,6 +24,22 @@ export default function AccountPage() {
     })();
   }, []);
 
+  async function refreshList() {
+    try {
+      const auth = await getClientAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/keys/list", { headers: { authorization: `Bearer ${idToken}` } });
+      const data = await res.json();
+      if (res.ok) setItems(Array.isArray(data.items) ? data.items : []);
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (loggedIn) refreshList();
+  }, [loggedIn]);
+
   async function generateKey() {
     setMessage(null);
     try {
@@ -31,12 +50,13 @@ export default function AccountPage() {
         return;
       }
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/proxy/key/generate", {
+      const res = await fetch("/api/key/generate", {
         method: "POST",
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${idToken}`,
         },
+        body: JSON.stringify({})
       });
       const data = await res.json();
       if (!res.ok) {
@@ -46,11 +66,43 @@ export default function AccountPage() {
         }
         setMessage(data?.error?.message || "Failed to generate key");
       } else {
-        setMessage("API key generated. It is shown once; store it securely.");
+        setRevealedKey(data?.key || null);
+        setModalOpen(true);
+        await refreshList();
       }
     } catch {
       setMessage("Network error");
     }
+  }
+
+  async function revokeKey(id: string) {
+    try {
+      const auth = await getClientAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/keys/revoke", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) refreshList();
+    } catch {}
+  }
+
+  async function setDefault(id: string) {
+    try {
+      const auth = await getClientAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/keys/set-default", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) refreshList();
+    } catch {}
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -78,7 +130,68 @@ export default function AccountPage() {
           </button>
         </div>
         {message && <p className="text-sm">{message}</p>}
+        <div className="mt-4 space-y-2">
+          <h2 className="font-medium">Your keys</h2>
+          <ul className="space-y-2">
+            {items.map((it) => (
+              <li key={it.id} className="border rounded p-3 flex items-center justify-between">
+                <div className="text-sm">
+                  <div className="font-mono">{it.keyPrefix}••••</div>
+                  <div className="text-xs text-foreground/70">
+                    {it.isDefault ? "Default • " : ""}
+                    {it.revokedAt ? "Revoked" : "Active"}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!it.revokedAt && (
+                    <>
+                      {!it.isDefault && (
+                        <button onClick={() => setDefault(it.id)} className="text-xs px-2 py-1 border rounded">
+                          Set default
+                        </button>
+                      )}
+                      <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">
+                        Revoke
+                      </button>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+            {items.length === 0 && <li className="text-sm text-foreground/70">No keys yet.</li>}
+          </ul>
+        </div>
       </div>
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white text-black rounded p-6 w-[32rem] max-w-full space-y-4">
+            <h3 className="text-lg font-semibold">Your new API key</h3>
+            <p className="text-sm text-gray-600">
+              This key is shown <b>only once</b>. Copy and store it securely. You won’t be able to see it again.
+            </p>
+            <div className="font-mono break-all border rounded p-3 bg-gray-50">{revealedKey}</div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  if (revealedKey) navigator.clipboard.writeText(revealedKey);
+                }}
+                className="px-3 py-2 border rounded"
+              >
+                Copy
+              </button>
+              <button
+                onClick={() => {
+                  setModalOpen(false);
+                  setRevealedKey(null);
+                }}
+                className="px-3 py-2 bg-black text-white rounded"
+              >
+                I saved it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

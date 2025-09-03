@@ -31,7 +31,7 @@ export default async function Home() {
         </p>
         <div className="flex gap-3 justify-center sm:justify-start">
           <Link
-            href={isLoggedIn ? "/account" : "/login"}
+            href="/get-started"
             className="rounded-full border border-transparent bg-foreground text-background px-5 h-12 inline-flex items-center justify-center text-sm sm:text-base font-medium hover:bg-[#383838] dark:hover:bg-[#ccc]"
           >
             Get started

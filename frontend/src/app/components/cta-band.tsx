@@ -7,7 +7,7 @@ export function CtaBand() {
       <h3 className="text-xl font-semibold mb-2">Start free</h3>
       <p className="text-foreground/75 mb-4">Build and test without a credit card.</p>
       <Link
-        href="/login"
+        href="/get-started"
         className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-foreground text-background"
       >
         Get started

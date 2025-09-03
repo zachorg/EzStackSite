@@ -1,7 +1,6 @@
 import * as admin from 'firebase-admin';
 import { https, setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { KeyManagementServiceClient } from '@google-cloud/kms';
 import argon2 from 'argon2';
 
@@ -13,23 +12,15 @@ if (!admin.apps.length) {
 const firestore = admin.firestore();
 const auth = admin.auth();
 
-// Lazy secret accessors
+// Secret/KMS helpers
 let cachedPepper: Buffer | null = null;
-const secretClient = new SecretManagerServiceClient();
 const kmsClient = new KeyManagementServiceClient();
-
-async function accessSecret(name: string): Promise<Buffer> {
-  const [version] = await secretClient.accessSecretVersion({ name });
-  const data = version.payload?.data;
-  if (!data) throw new Error(`Secret ${name} has no payload`);
-  return Buffer.from(data);
-}
 
 async function getPepper(): Promise<Buffer> {
   if (cachedPepper) return cachedPepper;
-  const pepperResource = process.env.APIKEY_PEPPER_RESOURCE;
-  if (!pepperResource) throw new Error('APIKEY_PEPPER_RESOURCE not set');
-  cachedPepper = await accessSecret(pepperResource);
+  const pepper = process.env.APIKEY_PEPPER;
+  if (!pepper) throw new Error('APIKEY_PEPPER not set');
+  cachedPepper = Buffer.from(pepper);
   return cachedPepper;
 }
 
@@ -134,7 +125,7 @@ setGlobalOptions({ maxInstances: 10 });
 export const createApiKey = https.onRequest({
   timeoutSeconds: 30,
   cors: true,
-  secrets: ['APIKEY_PEPPER_RESOURCE', 'KMS_KEY_RESOURCE'],
+  secrets: ['APIKEY_PEPPER'],
   region: process.env.FUNCTIONS_REGION || 'us-central1',
 }, async (req, res) => {
     try {

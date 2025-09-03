@@ -21,20 +21,25 @@
    - `firebase login`
 2. Initialize project (if not already)
    - Ensure `firebase.json` and `firestore.rules` exist
-3. Create Secret Manager secret for pepper
-   - In GCP: Secret Manager → Create secret `apikey-pepper`
-   - Add a random 32+ byte value
-   - Note secret version resource: `projects/<PROJECT>/secrets/apikey-pepper/versions/latest`
+3. Create Secret Manager secret for pepper (Functions v2 secret)
+   - In GCP: Secret Manager → Create secret named `APIKEY_PEPPER`
+   - Value: a random 32+ byte string (e.g., Base64)
 4. Configure Functions environment
-   - In Cloud Functions, set environment variables
-     - `APIKEY_PEPPER_RESOURCE=projects/<PROJECT>/secrets/apikey-pepper/versions/latest`
-     - Optional: `KMS_KEY_RESOURCE=projects/<PROJECT>/locations/<REGION>/keyRings/<KR>/cryptoKeys/<KEY>`
-     - Optional: `RUNTIME_ENV=prod` and `FUNCTIONS_REGION=us-central1`
+   - Functions v2 will inject the secret as env `APIKEY_PEPPER` when declared in code
+   - Optional: set `KMS_KEY_RESOURCE=projects/<PROJECT>/locations/<REGION>/keyRings/<KR>/cryptoKeys/<KEY>`
+   - Optional: `RUNTIME_ENV=prod` and `FUNCTIONS_REGION=us-central1`
 5. Deploy Firestore rules
    - `firebase deploy --only firestore:rules`
 6. Build and deploy functions
    - `cd functions && npm run build`
    - `firebase deploy --only functions`
+
+### Verify
+- Ensure frontend env set in `frontend/.env.local`:
+  - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION`, `NEXT_PUBLIC_FUNCTIONS_EMULATOR=false`
+- Check the function URL works:
+  - `curl -i https://<REGION>-<PROJECT>.cloudfunctions.net/createApiKey -H "Authorization: Bearer <ID_TOKEN>" -X POST -d '{}' -H 'content-type: application/json'`
+  - Expect 200 with `{ id, key, keyPrefix }`
 
 ### Frontend
 - Configure env in `frontend/.env.local` based on `frontend/env.example`:

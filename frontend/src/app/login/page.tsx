@@ -37,7 +37,7 @@ export default function LoginPage() {
         const detail = data?.error?.detail ? ` (${data.error.detail})` : "";
         setMessage((data?.error?.message || "Failed to create session") + detail);
       } else {
-        window.location.href = redirect || "/settings";
+        window.location.href = redirect || "/";
       }
     } catch (e) {
       setMessage(
@@ -76,7 +76,7 @@ export default function LoginPage() {
       const { createUserWithEmailAndPassword } = await import("firebase/auth");
       await createUserWithEmailAndPassword(auth, email.trim(), password);
       await startSessionWithCurrentUser();
-      window.location.href = redirect || "/settings";
+      window.location.href = redirect || "/";
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : "Account creation failed. Check email and password."
@@ -95,7 +95,7 @@ export default function LoginPage() {
       const { signInWithEmailAndPassword } = await import("firebase/auth");
       await signInWithEmailAndPassword(auth, email.trim(), password);
       await startSessionWithCurrentUser();
-      window.location.href = redirect || "/settings";
+      window.location.href = redirect || "/";
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : "Sign-in failed. Check your credentials."

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Type for session status response from API
 type SessionStatus = { loggedIn: boolean; uid?: string };
 
 export default function ProfileMenu() {
@@ -9,6 +10,7 @@ export default function ProfileMenu() {
   const [status, setStatus] = useState<SessionStatus>({ loggedIn: false });
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // Fetch current session status on component mount
   useEffect(() => {
     async function fetchStatus() {
       try {
@@ -20,6 +22,7 @@ export default function ProfileMenu() {
     fetchStatus();
   }, []);
 
+  // Handle clicks outside menu to close it
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -30,13 +33,22 @@ export default function ProfileMenu() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  // Sign out handler - ends session and redirects to home
   async function signOut() {
     try {
-      await fetch("/api/session/end", { method: "POST" });
-      window.location.href = "/";
+      // Clear server cookie and sign out of Firebase client auth
+      await fetch("/api/session/end", { method: "POST", credentials: "include" });
+      try {
+        const { getClientAuth } = await import("@/lib/firebase/client");
+        const auth = await getClientAuth();
+        const { signOut: fbSignOut } = await import("firebase/auth");
+        await fbSignOut(auth);
+      } catch {}
+      window.location.assign("/");
     } catch {}
   }
 
+  // If not logged in, show sign in link
   if (!status.loggedIn) {
     return (
       <a
@@ -48,11 +60,12 @@ export default function ProfileMenu() {
     );
   }
 
+  // If logged in, show profile menu
   return (
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="text-sm px-3 py-1.5 border rounded"
+        className="text-sm px-3 py-1.5 border rounded cursor-pointer"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -82,5 +95,3 @@ export default function ProfileMenu() {
     </div>
   );
 }
-
-

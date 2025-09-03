@@ -1,11 +1,23 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { adminAuth } from "@/lib/firebase/admin";
 import { AuroraBackground } from "./components/aurora-background";
 import { CodeExample } from "./components/code-example";
 import { BentoGrid } from "./components/bento-grid";
 import { Section } from "./components/section";
 import { CtaBand } from "./components/cta-band";
 
-export default function Home() {
+export default async function Home() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("__session")?.value;
+  let isLoggedIn = false;
+  if (sessionCookie) {
+    try {
+      await adminAuth.verifySessionCookie(sessionCookie, true);
+      isLoggedIn = true;
+    } catch {}
+  }
+
   return (
     <div className="relative font-sans space-y-16">
       <AuroraBackground />
@@ -19,7 +31,7 @@ export default function Home() {
         </p>
         <div className="flex gap-3 justify-center sm:justify-start">
           <Link
-            href="/login"
+            href={isLoggedIn ? "/account" : "/login"}
             className="rounded-full border border-transparent bg-foreground text-background px-5 h-12 inline-flex items-center justify-center text-sm sm:text-base font-medium hover:bg-[#383838] dark:hover:bg-[#ccc]"
           >
             Get started

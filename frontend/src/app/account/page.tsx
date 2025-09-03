@@ -3,12 +3,25 @@
 import { useEffect, useState } from "react";
 import { getClientAuth } from "@/lib/firebase/client";
 
+type ApiKeyItem = {
+  id: string;
+  keyPrefix: string;
+  isDefault?: boolean;
+  revokedAt?: unknown;
+};
+
+function isApiKeyItemLike(v: unknown): v is ApiKeyItem {
+  if (!v || typeof v !== "object") return false;
+  const obj = v as Record<string, unknown>;
+  return typeof obj.id === "string" && typeof obj.keyPrefix === "string";
+}
+
 // Basic account page: generates an API key via backend proxy after verifying session.
 export default function AccountPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ApiKeyItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
@@ -30,9 +43,22 @@ export default function AccountPage() {
       const user = auth.currentUser;
       if (!user) return;
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys/list", { headers: { authorization: `Bearer ${idToken}` } });
-      const data = await res.json();
-      if (res.ok) setItems(Array.isArray(data.items) ? data.items : []);
+      const res = await fetch("/api/keys", { headers: { authorization: `Bearer ${idToken}` } });
+      const data: unknown = await res.json();
+      if (
+        res.ok &&
+        data &&
+        typeof data === "object" &&
+        Array.isArray((data as { items?: unknown[] }).items)
+      ) {
+        const itemsRaw = (data as { items: unknown[] }).items;
+        const safe: ApiKeyItem[] = itemsRaw
+          .filter(isApiKeyItemLike)
+          .map((it) => ({ id: it.id, keyPrefix: it.keyPrefix, isDefault: !!it.isDefault, revokedAt: it.revokedAt }));
+        setItems(safe);
+      } else {
+        setItems([]);
+      }
     } catch {}
   }
 
@@ -50,7 +76,7 @@ export default function AccountPage() {
         return;
       }
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/key/generate", {
+      const res = await fetch("/api/keys", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -81,8 +107,8 @@ export default function AccountPage() {
       const user = auth.currentUser;
       if (!user) return;
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys/revoke", {
-        method: "POST",
+      const res = await fetch("/api/keys", {
+        method: "DELETE",
         headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ id }),
       });
@@ -96,8 +122,8 @@ export default function AccountPage() {
       const user = auth.currentUser;
       if (!user) return;
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys/set-default", {
-        method: "POST",
+      const res = await fetch("/api/keys", {
+        method: "PATCH",
         headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ id }),
       });

@@ -13,8 +13,3 @@ export async function DELETE(req: NextRequest) {
   return proxyPost("/revokeApiKey", req);
 }
 
-export async function PATCH(req: NextRequest) {
-  return proxyPost("/setDefaultApiKey", req);
-}
-
-

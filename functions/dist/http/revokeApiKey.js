@@ -1,6 +1,6 @@
 import { https } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { admin, firestore, requireAuth } from '../lib/common.js';
+import { firestore, requireAuth } from '../lib/common.js';
 export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FUNCTIONS_REGION || 'us-central1' }, async (req, res) => {
     try {
         if (req.method !== 'POST') {
@@ -18,8 +18,9 @@ export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FU
         const data = snap.data();
         if (data.userId !== uid)
             throw new HttpsError('permission-denied', 'Forbidden');
-        await ref.update({ revokedAt: admin.firestore.FieldValue.serverTimestamp(), isDefault: false });
-        res.json({ ok: true });
+        // Hard delete the document to fully remove key metadata from storage
+        await ref.delete();
+        res.json({ ok: true, deleted: true });
     }
     catch (err) {
         const code = err.code === 'permission-denied' ? 403 : err.code === 'not-found' ? 404 : 500;

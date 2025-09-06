@@ -7,7 +7,6 @@ type ApiKeyItem = {
   id: string;
   keyPrefix: string;
   name?: string | null;
-  isDefault?: boolean;
   revokedAt?: unknown;
   createdAt?: unknown;
   lastUsedAt?: unknown;
@@ -107,18 +106,19 @@ export default function AccountPage() {
         Array.isArray((data as { items?: unknown[] }).items)
       ) {
         const itemsRaw = (data as { items: unknown[] }).items;
-        const safe: ApiKeyItem[] = itemsRaw
+        let safe: ApiKeyItem[] = itemsRaw
           .map((u): ApiKeyItem | null => {
             if (!isApiKeyItemLike(u)) return null;
             const r = u as unknown as Record<string, unknown>;
             const name = typeof r.name === "string" ? r.name : null;
-            const isDefault = Boolean(r.isDefault);
             const revokedAt = r.revokedAt as unknown;
             const createdAt = r.createdAt as unknown;
             const lastUsedAt = r.lastUsedAt as unknown;
-            return { id: u.id, keyPrefix: u.keyPrefix, name, isDefault, revokedAt, createdAt, lastUsedAt };
+            return { id: u.id, keyPrefix: u.keyPrefix, name, revokedAt, createdAt, lastUsedAt };
           })
           .filter((x): x is ApiKeyItem => x !== null);
+        // Hide revoked keys from the visible list
+        safe = safe.filter((it) => !it.revokedAt);
         setItems(safe);
         setMessage(null);
       } else {
@@ -196,22 +196,12 @@ export default function AccountPage() {
         headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ id }),
       });
-      if (res.ok) refreshList();
-    } catch {}
-  }
-
-  async function setDefault(id: string) {
-    try {
-      const auth = await getClientAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-      const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys", {
-        method: "PATCH",
-        headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ id }),
-      });
-      if (res.ok) refreshList();
+      if (res.ok) {
+        // Optimistically remove from UI
+        setItems((prev) => prev.filter((it) => it.id !== id));
+        // Then refresh to ensure consistency
+        refreshList();
+      }
     } catch {}
   }
 
@@ -255,9 +245,6 @@ export default function AccountPage() {
                   <div className="text-sm text-foreground/70">{formatRelative(toDate(it.createdAt))}</div>
                   <div className="text-sm text-foreground/70">{it.lastUsedAt ? formatRelative(toDate(it.lastUsedAt)) : "Never"}</div>
                   <div className="flex gap-2 justify-end">
-                    {!it.revokedAt && !it.isDefault && (
-                      <button onClick={() => setDefault(it.id)} className="text-xs px-2 py-1 border rounded">Set default</button>
-                    )}
                     {!it.revokedAt && (
                       <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">Revoke</button>
                     )}

@@ -1,4 +1,4 @@
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 import { https, setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { KeyManagementServiceClient } from '@google-cloud/kms';

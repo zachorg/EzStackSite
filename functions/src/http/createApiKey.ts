@@ -24,16 +24,20 @@ export const createApiKey = https.onRequest({
 
     const doc: any = {
       userId: uid,
-      name: (req.body?.name as string) || undefined,
       keyPrefix: prefix,
       hashedKey: hashed,
       salt,
       alg: 'argon2id',
       params,
-      scopes: Array.isArray(req.body?.scopes) ? (req.body.scopes as string[]) : undefined,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       lastUsedAt: null,
       revokedAt: null,
+      ...(typeof req.body?.name === 'string' && req.body.name.trim()
+        ? { name: String(req.body.name).trim() }
+        : {}),
+      ...(Array.isArray(req.body?.scopes)
+        ? { scopes: (req.body.scopes as string[]).filter((s) => typeof s === 'string') }
+        : {}),
     };
 
     const kmsKey = process.env.KMS_KEY_RESOURCE;

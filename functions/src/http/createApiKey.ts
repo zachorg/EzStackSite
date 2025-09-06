@@ -3,7 +3,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { admin, firestore } from '../lib/common.js';
 import { buildApiKey, getEnvName, hashApiKey, encryptWithKms, requireAuth } from '../lib/common.js';
 
-setGlobalOptions({ maxInstances: 10 });
+setGlobalOptions({ maxInstances: 10, minInstances: 1 });
 
 export const createApiKey = https.onRequest({
   timeoutSeconds: 30,
@@ -48,15 +48,13 @@ export const createApiKey = https.onRequest({
     }
 
     const ref = await firestore.collection('apiKeys').add(doc);
-    const snap = await ref.get();
-    const data = snap.data() as any;
     res.status(200).json({
       id: ref.id,
       key: plaintext,
       keyPrefix: prefix,
-      name: data?.name || null,
-      createdAt: data?.createdAt || null,
-      lastUsedAt: data?.lastUsedAt || null,
+      name: (doc as any).name || null,
+      createdAt: null,
+      lastUsedAt: null,
     });
   } catch (err: any) {
     const status = err instanceof HttpsError && err.code === 'unauthenticated' ? 401 : 500;

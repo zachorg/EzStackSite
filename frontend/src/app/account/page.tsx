@@ -146,40 +146,53 @@ export default function AccountPage() {
         return;
       }
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify(
-          name && name.trim() ? { name: name.trim() } : {}
-        )
-      });
-      const data: unknown = await res.json();
-      if (!res.ok) {
-        if (res.status === 401) {
-          window.location.href = "/login?redirect=/account";
+      // Insert a temporary row immediately for instant UX
+      const tempId = `temp-${Date.now()}`;
+      const tempItem: ApiKeyItem = {
+        id: tempId,
+        keyPrefix: "",
+        name: name || null,
+        createdAt: new Date(),
+        lastUsedAt: null,
+      };
+      setItems((prev) => [tempItem, ...prev]);
+
+      // Kick off the request; update or rollback when it returns
+      (async () => {
+        const res = await fetch("/api/keys", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify(
+            name && name.trim() ? { name: name.trim() } : {}
+          )
+        });
+        const data: unknown = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.location.href = "/login?redirect=/account";
+            return;
+          }
+          const msg = (data as { error?: { message?: string } })?.error?.message || "Failed to generate key";
+          setMessage(msg);
+          // Roll back temp row
+          setItems((prev) => prev.filter((it) => it.id !== tempId));
           return;
         }
-        const msg = (data as { error?: { message?: string } })?.error?.message || "Failed to generate key";
-        setMessage(msg);
-      } else {
-        // Optimistic add to the list for immediate feedback
-        const id = (data as Record<string, unknown>)?.id;
-        const keyPrefix = (data as Record<string, unknown>)?.keyPrefix;
-        if (typeof id === "string" && typeof keyPrefix === "string") {
-          const optimistic: ApiKeyItem = {
-            id,
-            keyPrefix,
-            name: name || null,
-            createdAt: new Date(),
-            lastUsedAt: null,
-          };
-          setItems((prev) => [optimistic, ...prev]);
+        const newId = (data as Record<string, unknown>)?.id;
+        const newPrefix = (data as Record<string, unknown>)?.keyPrefix;
+        if (typeof newId === "string" && typeof newPrefix === "string") {
+          // Replace temp row with real one
+          setItems((prev) => prev.map((it) => it.id === tempId ? { ...it, id: newId, keyPrefix: newPrefix } : it));
+        } else {
+          // If response missing fields, just refresh
+          setItems((prev) => prev.filter((it) => it.id !== tempId));
         }
-        await refreshList();
-      }
+        // Keep data fresh without blocking UI
+        refreshList();
+      })();
     } catch {
       setMessage("Network error");
     }
@@ -196,12 +209,10 @@ export default function AccountPage() {
         headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ id }),
       });
-      if (res.ok) {
-        // Optimistically remove from UI
-        setItems((prev) => prev.filter((it) => it.id !== id));
-        // Then refresh to ensure consistency
-        refreshList();
-      }
+      // Optimistically remove immediately for instant UX
+      setItems((prev) => prev.filter((it) => it.id !== id));
+      // Keep data fresh regardless of server outcome
+      refreshList();
     } catch {}
   }
 

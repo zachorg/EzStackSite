@@ -2,7 +2,7 @@ import { https } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { firestore, requireAuth } from '../lib/common.js';
 
-export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FUNCTIONS_REGION || 'us-central1' }, async (req, res) => {
+export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FUNCTIONS_REGION || 'us-central1', minInstances: 1 }, async (req, res) => {
   try {
     if (req.method !== 'POST') {
       res.status(405).json({ error: { code: 'method_not_allowed' } });

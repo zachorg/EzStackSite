@@ -220,7 +220,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6 space-y-4">
+    <div className="max-w-4xl mx-auto p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Account settings</h1>
       <div className="space-y-2">
         <p className="text-sm text-foreground/70">Manage your EzStack API keys.</p>
@@ -229,32 +229,38 @@ export default function AccountPage() {
             <h2 className="font-medium">API Keys</h2>
             <button onClick={() => setCreateOpen(true)} className="px-3 py-2 bg-black text-white rounded text-sm">+ Create API Key</button>
           </div>
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,auto] text-xs uppercase text-foreground/60 py-2">
-              <div>Name</div>
-              <div>Key</div>
-              <div>Created</div>
-              <div>Last used</div>
-              <div></div>
-            </div>
-            <div className="divide-y">
-              {items.map((it) => (
-                <div key={it.id} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,auto] items-center py-3">
-                  <div className="truncate">{it.name || "Unnamed key"}</div>
-                  <div className="font-mono text-sm text-foreground/80 truncate">{it.keyPrefix}…</div>
-                  <div className="text-sm text-foreground/70">{formatRelative(toDate(it.createdAt))}</div>
-                  <div className="text-sm text-foreground/70">{it.lastUsedAt ? formatRelative(toDate(it.lastUsedAt)) : "Never"}</div>
-                  <div className="flex gap-2 justify-end">
-                    {!it.revokedAt && (
-                      <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">Revoke</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {items.length === 0 && (
-                <div className="py-6 text-sm text-foreground/70">No keys yet.</div>
-              )}
-            </div>
+          <div className="px-4 pb-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-foreground/60">
+                <tr>
+                  <th className="text-left font-medium py-2">Name</th>
+                  <th className="text-left font-medium py-2">Key</th>
+                  <th className="text-left font-medium py-2">Created</th>
+                  <th className="text-left font-medium py-2">Last used</th>
+                  <th className="text-right font-medium py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {items.map((it) => (
+                  <tr key={it.id} className="align-middle">
+                    <td className="py-3 truncate">{it.name || "Unnamed key"}</td>
+                    <td className="py-3 font-mono text-foreground/80 truncate">{it.keyPrefix}…</td>
+                    <td className="py-3 text-foreground/70">{formatRelative(toDate(it.createdAt))}</td>
+                    <td className="py-3 text-foreground/70">{it.lastUsedAt ? formatRelative(toDate(it.lastUsedAt)) : "Never"}</td>
+                    <td className="py-3">
+                      <div className="flex gap-2 justify-end">
+                        {!it.revokedAt && (
+                          <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">Revoke</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {items.length === 0 && (
+              <div className="py-6 text-sm text-foreground/70">No keys yet.</div>
+            )}
           </div>
         </div>
         {message && <p className="text-sm">{message}</p>}

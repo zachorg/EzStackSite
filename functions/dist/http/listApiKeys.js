@@ -10,7 +10,6 @@ export const listApiKeys = https.onRequest({ cors: true, region: process.env.FUN
         const qs = await firestore
             .collection('apiKeys')
             .where('userId', '==', uid)
-            .orderBy('createdAt', 'desc')
             .limit(100)
             .get();
         const items = qs.docs.map((d) => {
@@ -28,6 +27,10 @@ export const listApiKeys = https.onRequest({ cors: true, region: process.env.FUN
                 revokedAt: v.revokedAt,
                 isDefault: !!v.isDefault,
             };
+        }).sort((a, b) => {
+            const ad = (a.createdAt && (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt.seconds * 1000))) || new Date(0);
+            const bd = (b.createdAt && (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt.seconds * 1000))) || new Date(0);
+            return bd.getTime() - ad.getTime();
         });
         res.json({ items });
     }

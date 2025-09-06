@@ -6,8 +6,11 @@ import { getClientAuth } from "@/lib/firebase/client";
 type ApiKeyItem = {
   id: string;
   keyPrefix: string;
+  name?: string | null;
   isDefault?: boolean;
   revokedAt?: unknown;
+  createdAt?: unknown;
+  lastUsedAt?: unknown;
 };
 
 function isApiKeyItemLike(v: unknown): v is ApiKeyItem {
@@ -22,19 +25,71 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [items, setItems] = useState<ApiKeyItem[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  function toDate(v: unknown): Date | null {
+    if (!v) return null;
+    // Firestore Timestamp-like
+    if (typeof v === "object" && v !== null) {
+      type TimestampLike = { toDate?: () => Date; seconds?: number };
+      const ts = v as TimestampLike;
+      if (typeof ts.toDate === "function") return ts.toDate();
+      if (typeof ts.seconds === "number") return new Date(ts.seconds * 1000);
+    }
+    if (typeof v === "string" || typeof v === "number") {
+      const d = new Date(v as string | number);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  function formatRelative(dt: Date | null): string {
+    if (!dt) return "Unknown";
+    const diffMs = Date.now() - dt.getTime();
+    if (diffMs < 0) return "Just now";
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+  }
 
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/session/status", { cache: "no-store" });
         const data = await res.json();
-        setLoggedIn(Boolean(data?.loggedIn));
+        if (Boolean(data?.loggedIn)) {
+          setLoggedIn(true);
+        } else {
+          try {
+            const auth = await getClientAuth();
+            if (auth.currentUser) setLoggedIn(true);
+          } catch {}
+        }
       } finally {
         setLoading(false);
       }
     })();
+  }, []);
+
+  // Keep loggedIn in sync with Firebase client auth and refresh list on sign-in
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    (async () => {
+      try {
+        const auth = await getClientAuth();
+        const mod = await import("firebase/auth");
+        unsub = mod.onAuthStateChanged(auth, (user) => {
+          setLoggedIn(!!user);
+          if (user) refreshList();
+        });
+      } catch {}
+    })();
+    return () => { if (unsub) unsub(); };
   }, []);
 
   async function refreshList() {
@@ -53,20 +108,35 @@ export default function AccountPage() {
       ) {
         const itemsRaw = (data as { items: unknown[] }).items;
         const safe: ApiKeyItem[] = itemsRaw
-          .filter(isApiKeyItemLike)
-          .map((it) => ({ id: it.id, keyPrefix: it.keyPrefix, isDefault: !!it.isDefault, revokedAt: it.revokedAt }));
+          .map((u): ApiKeyItem | null => {
+            if (!isApiKeyItemLike(u)) return null;
+            const r = u as unknown as Record<string, unknown>;
+            const name = typeof r.name === "string" ? r.name : null;
+            const isDefault = Boolean(r.isDefault);
+            const revokedAt = r.revokedAt as unknown;
+            const createdAt = r.createdAt as unknown;
+            const lastUsedAt = r.lastUsedAt as unknown;
+            return { id: u.id, keyPrefix: u.keyPrefix, name, isDefault, revokedAt, createdAt, lastUsedAt };
+          })
+          .filter((x): x is ApiKeyItem => x !== null);
         setItems(safe);
+        setMessage(null);
       } else {
         setItems([]);
+        const errMsg = (data as { error?: { message?: string } })?.error?.message || `Failed to load keys (status ${res.status})`;
+        setMessage(errMsg);
       }
-    } catch {}
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "network error";
+      setMessage(`Failed to load keys: ${msg}`);
+    }
   }
 
   useEffect(() => {
     if (loggedIn) refreshList();
   }, [loggedIn]);
 
-  async function generateKey() {
+  async function generateKey(name?: string) {
     setMessage(null);
     try {
       const auth = await getClientAuth();
@@ -82,18 +152,32 @@ export default function AccountPage() {
           "content-type": "application/json",
           authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({})
+        body: JSON.stringify(
+          name && name.trim() ? { name: name.trim() } : {}
+        )
       });
-      const data = await res.json();
+      const data: unknown = await res.json();
       if (!res.ok) {
         if (res.status === 401) {
           window.location.href = "/login?redirect=/account";
           return;
         }
-        setMessage(data?.error?.message || "Failed to generate key");
+        const msg = (data as { error?: { message?: string } })?.error?.message || "Failed to generate key";
+        setMessage(msg);
       } else {
-        setRevealedKey(data?.key || null);
-        setModalOpen(true);
+        // Optimistic add to the list for immediate feedback
+        const id = (data as Record<string, unknown>)?.id;
+        const keyPrefix = (data as Record<string, unknown>)?.keyPrefix;
+        if (typeof id === "string" && typeof keyPrefix === "string") {
+          const optimistic: ApiKeyItem = {
+            id,
+            keyPrefix,
+            name: name || null,
+            createdAt: new Date(),
+            lastUsedAt: null,
+          };
+          setItems((prev) => [optimistic, ...prev]);
+        }
         await refreshList();
       }
     } catch {
@@ -149,70 +233,68 @@ export default function AccountPage() {
     <div className="max-w-xl mx-auto p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Account settings</h1>
       <div className="space-y-2">
-        <p className="text-sm text-foreground/70">Manage your EzStack API key.</p>
-        <div className="flex gap-2">
-          <button onClick={generateKey} className="px-4 py-2 bg-black text-white rounded">
-            Generate API key
-          </button>
-        </div>
-        {message && <p className="text-sm">{message}</p>}
-        <div className="mt-4 space-y-2">
-          <h2 className="font-medium">Your keys</h2>
-          <ul className="space-y-2">
-            {items.map((it) => (
-              <li key={it.id} className="border rounded p-3 flex items-center justify-between">
-                <div className="text-sm">
-                  <div className="font-mono">{it.keyPrefix}••••</div>
-                  <div className="text-xs text-foreground/70">
-                    {it.isDefault ? "Default • " : ""}
-                    {it.revokedAt ? "Revoked" : "Active"}
+        <p className="text-sm text-foreground/70">Manage your EzStack API keys.</p>
+        <div className="border rounded">
+          <div className="flex items-center justify-between p-4">
+            <h2 className="font-medium">API Keys</h2>
+            <button onClick={() => setCreateOpen(true)} className="px-3 py-2 bg-black text-white rounded text-sm">+ Create API Key</button>
+          </div>
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,auto] text-xs uppercase text-foreground/60 py-2">
+              <div>Name</div>
+              <div>Key</div>
+              <div>Created</div>
+              <div>Last used</div>
+              <div></div>
+            </div>
+            <div className="divide-y">
+              {items.map((it) => (
+                <div key={it.id} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,auto] items-center py-3">
+                  <div className="truncate">{it.name || "Unnamed key"}</div>
+                  <div className="font-mono text-sm text-foreground/80 truncate">{it.keyPrefix}…</div>
+                  <div className="text-sm text-foreground/70">{formatRelative(toDate(it.createdAt))}</div>
+                  <div className="text-sm text-foreground/70">{it.lastUsedAt ? formatRelative(toDate(it.lastUsedAt)) : "Never"}</div>
+                  <div className="flex gap-2 justify-end">
+                    {!it.revokedAt && !it.isDefault && (
+                      <button onClick={() => setDefault(it.id)} className="text-xs px-2 py-1 border rounded">Set default</button>
+                    )}
+                    {!it.revokedAt && (
+                      <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">Revoke</button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {!it.revokedAt && (
-                    <>
-                      {!it.isDefault && (
-                        <button onClick={() => setDefault(it.id)} className="text-xs px-2 py-1 border rounded">
-                          Set default
-                        </button>
-                      )}
-                      <button onClick={() => revokeKey(it.id)} className="text-xs px-2 py-1 border rounded">
-                        Revoke
-                      </button>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-            {items.length === 0 && <li className="text-sm text-foreground/70">No keys yet.</li>}
-          </ul>
+              ))}
+              {items.length === 0 && (
+                <div className="py-6 text-sm text-foreground/70">No keys yet.</div>
+              )}
+            </div>
+          </div>
         </div>
+        {message && <p className="text-sm">{message}</p>}
       </div>
-      {modalOpen && (
+      {createOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white text-black rounded p-6 w-[32rem] max-w-full space-y-4">
-            <h3 className="text-lg font-semibold">Your new API key</h3>
-            <p className="text-sm text-gray-600">
-              This key is shown <b>only once</b>. Copy and store it securely. You won’t be able to see it again.
-            </p>
-            <div className="font-mono break-all border rounded p-3 bg-gray-50">{revealedKey}</div>
+            <h3 className="text-lg font-semibold">Create API Key</h3>
+            <label className="text-sm text-gray-700">Give your API key a display name.</label>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. staging or production"
+              className="w-full border rounded px-3 py-2"
+            />
             <div className="flex gap-2 justify-end">
+              <button onClick={() => setCreateOpen(false)} className="px-3 py-2 border rounded">Cancel</button>
               <button
-                onClick={() => {
-                  if (revealedKey) navigator.clipboard.writeText(revealedKey);
-                }}
-                className="px-3 py-2 border rounded"
-              >
-                Copy
-              </button>
-              <button
-                onClick={() => {
-                  setModalOpen(false);
-                  setRevealedKey(null);
+                onClick={async () => {
+                  const name = newName.trim();
+                  setCreateOpen(false);
+                  setNewName("");
+                  await generateKey(name);
                 }}
                 className="px-3 py-2 bg-black text-white rounded"
               >
-                I saved it
+                Create API Key
               </button>
             </div>
           </div>

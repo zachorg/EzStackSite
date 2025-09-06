@@ -69,12 +69,27 @@ export function getEnvName() {
     return process.env.FUNCTIONS_EMULATOR ? 'dev' : (process.env.RUNTIME_ENV || 'prod');
 }
 export async function requireAuth(req) {
-    const authz = req.headers.authorization || '';
-    const token = authz.startsWith('Bearer ') ? authz.substring('Bearer '.length) : null;
-    if (!token)
-        throw new HttpsError('unauthenticated', 'Missing bearer token');
-    const decoded = await auth.verifyIdToken(token, true);
-    return decoded.uid;
+    const headers = (req && req.headers) || {};
+    const authz = (headers.authorization || headers.Authorization || '');
+    const bearer = authz && typeof authz === 'string' && authz.startsWith('Bearer ')
+        ? authz.substring('Bearer '.length)
+        : '';
+    if (bearer) {
+        const decoded = await auth.verifyIdToken(bearer, true);
+        return decoded.uid;
+    }
+    const rawCookie = (headers.cookie || headers.Cookie || '');
+    if (rawCookie) {
+        const parts = rawCookie.split(';');
+        for (const part of parts) {
+            const [k, v] = part.split('=');
+            if (k && k.trim() === '__session' && typeof v === 'string') {
+                const decoded = await auth.verifySessionCookie(decodeURIComponent(v), true);
+                return decoded.uid;
+            }
+        }
+    }
+    throw new HttpsError('unauthenticated', 'Missing authentication');
 }
 export async function hashApiKey(plaintext) {
     const pepper = await getPepper();

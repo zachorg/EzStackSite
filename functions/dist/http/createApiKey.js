@@ -42,7 +42,16 @@ export const createApiKey = https.onRequest({
             doc.keyMaterialEnc = enc.toString('base64');
         }
         const ref = await firestore.collection('apiKeys').add(doc);
-        res.status(200).json({ id: ref.id, key: plaintext, keyPrefix: prefix });
+        const snap = await ref.get();
+        const data = snap.data();
+        res.status(200).json({
+            id: ref.id,
+            key: plaintext,
+            keyPrefix: prefix,
+            name: data?.name || null,
+            createdAt: data?.createdAt || null,
+            lastUsedAt: data?.lastUsedAt || null,
+        });
     }
     catch (err) {
         const status = err instanceof HttpsError && err.code === 'unauthenticated' ? 401 : 500;

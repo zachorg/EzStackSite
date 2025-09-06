@@ -76,11 +76,27 @@ export function getEnvName(): string {
 }
 
 export async function requireAuth(req: any): Promise<string> {
-  const authz = req.headers.authorization || '';
-  const token = authz.startsWith('Bearer ') ? authz.substring('Bearer '.length) : null;
-  if (!token) throw new HttpsError('unauthenticated', 'Missing bearer token');
-  const decoded = await auth.verifyIdToken(token, true);
-  return decoded.uid;
+  const headers = (req && req.headers) || {};
+  const authz: string = (headers.authorization || headers.Authorization || '') as string;
+  const bearer = authz && typeof authz === 'string' && authz.startsWith('Bearer ')
+    ? authz.substring('Bearer '.length)
+    : '';
+  if (bearer) {
+    const decoded = await auth.verifyIdToken(bearer, true);
+    return decoded.uid;
+  }
+  const rawCookie: string = (headers.cookie || headers.Cookie || '') as string;
+  if (rawCookie) {
+    const parts = rawCookie.split(';');
+    for (const part of parts) {
+      const [k, v] = part.split('=');
+      if (k && k.trim() === '__session' && typeof v === 'string') {
+        const decoded = await auth.verifySessionCookie(decodeURIComponent(v), true);
+        return decoded.uid;
+      }
+    }
+  }
+  throw new HttpsError('unauthenticated', 'Missing authentication');
 }
 
 export type ApiKeyDoc = {

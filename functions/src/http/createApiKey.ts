@@ -3,7 +3,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { admin, firestore } from '../lib/common.js';
 import { buildApiKey, getEnvName, hashApiKey, encryptWithKms, requireAuth } from '../lib/common.js';
 
-setGlobalOptions({ maxInstances: 10, minInstances: 1 });
+setGlobalOptions({ maxInstances: 10 });
 
 export const createApiKey = https.onRequest({
   timeoutSeconds: 30,

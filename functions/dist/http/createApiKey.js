@@ -42,15 +42,13 @@ export const createApiKey = https.onRequest({
             doc.keyMaterialEnc = enc.toString('base64');
         }
         const ref = await firestore.collection('apiKeys').add(doc);
-        const snap = await ref.get();
-        const data = snap.data();
         res.status(200).json({
             id: ref.id,
             key: plaintext,
             keyPrefix: prefix,
-            name: data?.name || null,
-            createdAt: data?.createdAt || null,
-            lastUsedAt: data?.lastUsedAt || null,
+            name: doc.name || null,
+            createdAt: null,
+            lastUsedAt: null,
         });
     }
     catch (err) {

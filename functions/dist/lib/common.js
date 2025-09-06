@@ -95,7 +95,11 @@ export async function hashApiKey(plaintext) {
     const pepper = await getPepper();
     const saltBuf = randomBytes(16);
     const salt = saltBuf.toString('base64');
-    const params = { memoryCost: 19456, timeCost: 2, parallelism: 1 };
+    const envName = getEnvName();
+    const isProd = envName === 'prod';
+    const params = isProd
+        ? { memoryCost: 19456, timeCost: 2, parallelism: 1 }
+        : { memoryCost: 1024, timeCost: 1, parallelism: 1 };
     const hashed = await argon2.hash(Buffer.concat([pepper, Buffer.from(plaintext)]), {
         type: argon2.argon2id,
         memoryCost: params.memoryCost,

@@ -2,7 +2,7 @@ import { https } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { firestore, requireAuth } from '../lib/common.js';
 
-export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FUNCTIONS_REGION || 'us-central1', minInstances: 1 }, async (req, res) => {
+export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FUNCTIONS_REGION || 'us-central1' }, async (req, res) => {
   try {
     if (req.method !== 'POST') {
       res.status(405).json({ error: { code: 'method_not_allowed' } });
@@ -12,12 +12,14 @@ export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FU
     const id = req.body?.id as string;
     if (!id) throw new HttpsError('invalid-argument', 'Missing id');
     const ref = firestore.collection('apiKeys').doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) throw new HttpsError('not-found', 'Key not found');
-    const data = snap.data() as any;
-    if (data.userId !== uid) throw new HttpsError('permission-denied', 'Forbidden');
-    // Hard delete the document to fully remove key metadata from storage
-    await ref.delete();
+    // Use a transaction to verify ownership at delete time
+    await firestore.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError('not-found', 'Key not found');
+      const data = snap.data() as any;
+      if (data.userId !== uid) throw new HttpsError('permission-denied', 'Forbidden');
+      tx.delete(ref);
+    });
     res.json({ ok: true, deleted: true });
   } catch (err: any) {
     const code = err.code === 'permission-denied' ? 403 :  err.code === 'not-found' ? 404 : 500;

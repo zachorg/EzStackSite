@@ -12,14 +12,16 @@ export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FU
         if (!id)
             throw new HttpsError('invalid-argument', 'Missing id');
         const ref = firestore.collection('apiKeys').doc(id);
-        const snap = await ref.get();
-        if (!snap.exists)
-            throw new HttpsError('not-found', 'Key not found');
-        const data = snap.data();
-        if (data.userId !== uid)
-            throw new HttpsError('permission-denied', 'Forbidden');
-        // Hard delete the document to fully remove key metadata from storage
-        await ref.delete();
+        // Use a transaction to verify ownership at delete time
+        await firestore.runTransaction(async (tx) => {
+            const snap = await tx.get(ref);
+            if (!snap.exists)
+                throw new HttpsError('not-found', 'Key not found');
+            const data = snap.data();
+            if (data.userId !== uid)
+                throw new HttpsError('permission-denied', 'Forbidden');
+            tx.delete(ref);
+        });
         res.json({ ok: true, deleted: true });
     }
     catch (err) {

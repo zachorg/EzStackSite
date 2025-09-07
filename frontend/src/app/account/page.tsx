@@ -43,12 +43,13 @@ export default function AccountPage() {
 
   function toDate(v: unknown): Date | null {
     if (!v) return null;
-    // Firestore Timestamp-like
+    // Firestore Timestamp-like (covers SDK object and JSON-serialized admin object)
     if (typeof v === "object" && v !== null) {
-      type TimestampLike = { toDate?: () => Date; seconds?: number };
+      type TimestampLike = { toDate?: () => Date; seconds?: number; _seconds?: number };
       const ts = v as TimestampLike;
       if (typeof ts.toDate === "function") return ts.toDate();
-      if (typeof ts.seconds === "number") return new Date(ts.seconds * 1000);
+      const s = typeof ts.seconds === "number" ? ts.seconds : typeof ts._seconds === "number" ? ts._seconds : undefined;
+      if (typeof s === "number") return new Date(s * 1000);
     }
     if (typeof v === "string" || typeof v === "number") {
       const d = new Date(v as string | number);

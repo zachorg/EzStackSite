@@ -111,7 +111,6 @@ export type ApiKeyDoc = {
   createdAt: admin.firestore.FieldValue | admin.firestore.Timestamp;
   lastUsedAt: admin.firestore.FieldValue | admin.firestore.Timestamp | null;
   revokedAt: admin.firestore.FieldValue | admin.firestore.Timestamp | null;
-  isDefault?: boolean;
   // Optional demo
   keyMaterialEnc?: string;
 };

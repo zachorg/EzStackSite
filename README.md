@@ -5,8 +5,7 @@
 - Cloud Functions (Node 20, TypeScript) in `functions/`:
   - `createApiKey`: issues API keys server-side, returns plaintext once
   - `listApiKeys`: returns metadata only
-  - `revokeApiKey`: marks revokedAt
-  - `setDefaultApiKey`: toggles default per-user
+  - `revokeApiKey`: deletes key metadata
   - Optional: `demoProxyCall` uses KMS to decrypt demo key blobs server-side
 
 ### Security Properties

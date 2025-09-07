@@ -17,6 +17,7 @@ export const createApiKey = https.onRequest({
       return;
     }
     const uid = await requireAuth(req);
+    console.log(JSON.stringify({ event: 'createApiKey.request', uid }));
     const envName = getEnvName();
     const { plaintext, prefix } = buildApiKey(envName);
 
@@ -48,6 +49,7 @@ export const createApiKey = https.onRequest({
     }
 
     const ref = await firestore.collection('apiKeys').add(doc);
+    console.log(JSON.stringify({ event: 'createApiKey.document_created', uid, keyId: ref.id, keyPrefix: prefix }));
     res.status(200).json({
       id: ref.id,
       key: plaintext,
@@ -57,6 +59,7 @@ export const createApiKey = https.onRequest({
       lastUsedAt: null,
     });
   } catch (err: any) {
+    console.error(JSON.stringify({ event: 'createApiKey.error', message: err?.message || String(err) }));
     const status = err instanceof HttpsError && err.code === 'unauthenticated' ? 401 : 500;
     res.status(status).json({ error: { message: err.message || 'Internal error' } });
   }

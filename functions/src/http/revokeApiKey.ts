@@ -11,6 +11,7 @@ export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FU
     const uid = await requireAuth(req);
     const id = req.body?.id as string;
     if (!id) throw new HttpsError('invalid-argument', 'Missing id');
+    console.log(JSON.stringify({ event: 'revokeApiKey.request', uid, keyId: id }));
     const ref = firestore.collection('apiKeys').doc(id);
     // Use a transaction to verify ownership at delete time
     await firestore.runTransaction(async (tx) => {
@@ -20,8 +21,10 @@ export const revokeApiKey = https.onRequest({ cors: true, region: process.env.FU
       if (data.userId !== uid) throw new HttpsError('permission-denied', 'Forbidden');
       tx.delete(ref);
     });
+    console.log(JSON.stringify({ event: 'revokeApiKey.deleted', uid, keyId: id }));
     res.json({ ok: true, deleted: true });
   } catch (err: any) {
+    console.error(JSON.stringify({ event: 'revokeApiKey.error', message: err?.message || String(err) }));
     const code = err.code === 'permission-denied' ? 403 :  err.code === 'not-found' ? 404 : 500;
     res.status(code).json({ error: { message: err.message || 'Internal error' } });
   }

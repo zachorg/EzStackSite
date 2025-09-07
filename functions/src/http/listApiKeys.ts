@@ -8,6 +8,7 @@ export const listApiKeys = https.onRequest({ cors: true, region: process.env.FUN
       return;
     }
     const uid = await requireAuth(req);
+    console.log(JSON.stringify({ event: 'listApiKeys.request', uid }));
     const qs = await firestore
       .collection('apiKeys')
       .where('userId', '==', uid)
@@ -17,16 +18,11 @@ export const listApiKeys = https.onRequest({ cors: true, region: process.env.FUN
       const v: any = d.data();
       return {
         id: d.id,
-        userId: v.userId,
         name: v.name || null,
         keyPrefix: v.keyPrefix,
-        alg: v.alg,
-        params: v.params,
-        scopes: v.scopes || [],
         createdAt: v.createdAt,
         lastUsedAt: v.lastUsedAt,
         revokedAt: v.revokedAt,
-        isDefault: !!v.isDefault,
       };
     }).sort((a, b) => {
       const ad = (a.createdAt && (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt.seconds * 1000))) || new Date(0);
@@ -35,6 +31,7 @@ export const listApiKeys = https.onRequest({ cors: true, region: process.env.FUN
     });
     res.json({ items });
   } catch (err: any) {
+    console.error(JSON.stringify({ event: 'listApiKeys.error', message: err?.message || String(err) }));
     res.status(500).json({ error: { message: err.message || 'Internal error' } });
   }
 });

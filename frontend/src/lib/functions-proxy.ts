@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Resolve the Cloud Functions base URL. Uses emulator if NEXT_PUBLIC_FUNCTIONS_EMULATOR=true.
 export function functionsBaseUrl(): string {
   const region = process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
   const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
@@ -12,6 +13,7 @@ export function functionsBaseUrl(): string {
 
 type HttpMethod = "GET" | "POST";
 
+// Minimal proxy that forwards auth header to Cloud Functions and returns JSON responses.
 async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
   const authz = req.headers.get("authorization");
   if (!authz) return NextResponse.json({ error: { code: "unauthorized", message: "Login required" } }, { status: 401 });
@@ -34,6 +36,11 @@ async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
     return NextResponse.json(data, { status: res.status, headers: { 'x-proxy-target': url } });
   } catch (err) {
     const msg = typeof (err as { message?: unknown })?.message === "string" ? (err as { message: string }).message : "Proxy error";
+    if (process.env.NODE_ENV !== 'production') {
+      // Dev-only logging to help debug proxy failures
+      // Avoid logging tokens or sensitive request bodies
+      console.warn("functions proxy error", { fnPath, msg });
+    }
     return NextResponse.json({ error: { message: msg } }, { status: 500 });
   }
 }

@@ -91,6 +91,7 @@ export default function AccountPage() {
     return () => { if (unsub) unsub(); };
   }, []);
 
+  // Fetch the latest API keys for the logged-in user
   async function refreshList() {
     try {
       const auth = await getClientAuth();
@@ -136,6 +137,7 @@ export default function AccountPage() {
     if (loggedIn) refreshList();
   }, [loggedIn]);
 
+  // Create a new API key. UI is updated optimistically.
   async function generateKey(name?: string) {
     setMessage(null);
     try {
@@ -198,6 +200,7 @@ export default function AccountPage() {
     }
   }
 
+  // Revoke a key by id. UI updates optimistically and then refreshes.
   async function revokeKey(id: string) {
     try {
       const auth = await getClientAuth();

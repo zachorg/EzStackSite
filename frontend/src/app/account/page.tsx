@@ -30,6 +30,17 @@ export default function AccountPage() {
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
 
+  // Validate new API key name: required and unique among existing (non-revoked) keys
+  const trimmedNewName = newName.trim();
+  const nameDuplicate = trimmedNewName
+    ? items.some((it) => (it.name || "").trim().toLowerCase() === trimmedNewName.toLowerCase())
+    : false;
+  const nameError: string | null = !trimmedNewName
+    ? "Name is required"
+    : nameDuplicate
+    ? "This name is already used"
+    : null;
+
   function toDate(v: unknown): Date | null {
     if (!v) return null;
     // Firestore Timestamp-like
@@ -295,18 +306,24 @@ export default function AccountPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. staging or production"
-              className="w-full border rounded px-3 py-2"
+              className={`w-full border rounded px-3 py-2 ${nameError ? "border-red-500" : ""}`}
+              aria-invalid={Boolean(nameError)}
             />
+            <div className="h-5">
+              {nameError && <p className="text-xs text-red-600">{nameError}</p>}
+            </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setCreateOpen(false)} className="px-3 py-2 border rounded">Cancel</button>
               <button
                 onClick={async () => {
                   const name = newName.trim();
+                  if (nameError) return;
                   setCreateOpen(false);
                   setNewName("");
                   await generateKey(name);
                 }}
-                className="px-3 py-2 bg-black text-white rounded"
+                disabled={Boolean(nameError)}
+                className={`px-3 py-2 rounded text-white ${nameError ? "bg-black/50 cursor-not-allowed" : "bg-black"}`}
               >
                 Create API Key
               </button>

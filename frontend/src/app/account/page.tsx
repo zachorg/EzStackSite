@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getClientAuth } from "@/lib/firebase/client";
 
 type ApiKeyItem = {
@@ -26,6 +26,9 @@ export default function AccountPage() {
   const [items, setItems] = useState<ApiKeyItem[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [showPlainKey, setShowPlainKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
 
   function toDate(v: unknown): Date | null {
     if (!v) return null;
@@ -185,12 +188,16 @@ export default function AccountPage() {
         }
         const newId = (data as Record<string, unknown>)?.id;
         const newPrefix = (data as Record<string, unknown>)?.keyPrefix;
+        const plaintext = (data as Record<string, unknown>)?.key;
         if (typeof newId === "string" && typeof newPrefix === "string") {
           // Replace temp row with real one
           setItems((prev) => prev.map((it) => it.id === tempId ? { ...it, id: newId, keyPrefix: newPrefix } : it));
         } else {
           // If response missing fields, just refresh
           setItems((prev) => prev.filter((it) => it.id !== tempId));
+        }
+        if (typeof plaintext === "string" && plaintext) {
+          setShowPlainKey(plaintext);
         }
         // Keep data fresh without blocking UI
         refreshList();
@@ -303,6 +310,38 @@ export default function AccountPage() {
               >
                 Create API Key
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPlainKey && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white text-black rounded p-6 w-[32rem] max-w-full space-y-4">
+            <h3 className="text-lg font-semibold">Your new API key</h3>
+            <p className="text-sm text-gray-700">Copy and store it now. You won't be able to see it again.</p>
+            <div className="flex items-center gap-2">
+              <input
+                value={showPlainKey}
+                readOnly
+                className="flex-1 border rounded px-3 py-2 font-mono"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(showPlainKey);
+                    if (copyTimerRef.current) {
+                      window.clearTimeout(copyTimerRef.current);
+                    }
+                    setCopied(true);
+                    copyTimerRef.current = window.setTimeout(() => setCopied(false), 1500);
+                  } catch {}
+                }}
+                className={`px-3 py-2 border rounded transition-colors ${copied ? "bg-green-600 text-white border-green-600" : ""}`}
+                title={copied ? "Copied!" : "Copy to clipboard"}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+              <button onClick={() => { setShowPlainKey(null); setCopied(false); if (copyTimerRef.current) { window.clearTimeout(copyTimerRef.current); copyTimerRef.current = null; } }} className="px-3 py-2 bg-black text-white rounded">Done</button>
             </div>
           </div>
         </div>

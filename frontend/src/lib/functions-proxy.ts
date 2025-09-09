@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Resolve the Cloud Functions base URL. Uses emulator if NEXT_PUBLIC_FUNCTIONS_EMULATOR=true.
+// Resolve the API base URL for the Render-hosted service (or local dev).
 export function functionsBaseUrl(): string {
-  const region = process.env.NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
-  const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-  if (!project) throw new Error("Missing env NEXT_PUBLIC_FIREBASE_PROJECT_ID");
-  const useEmulator = process.env.NEXT_PUBLIC_FUNCTIONS_EMULATOR === "true";
-  return useEmulator
-    ? `http://127.0.0.1:5001/${project}/${region}`
-    : `https://${region}-${project}.cloudfunctions.net`;
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "http://127.0.0.1:4000";
+  return base.replace(/\/$/, "");
 }
 
 type HttpMethod = "GET" | "POST";
 
-// Minimal proxy that forwards auth header to Cloud Functions and returns JSON responses.
+// Minimal proxy that forwards auth header to the external API and returns JSON responses.
 async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
   const authz = req.headers.get("authorization");
   if (!authz) return NextResponse.json({ error: { code: "unauthorized", message: "Login required" } }, { status: 401 });

@@ -1,24 +1,4 @@
 {
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default"
-    },
-    {
-      "source": "ezstack",
-      "codebase": "ezstack",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
-      "predeploy": [
-        "ezstack\\scripts\\predeploy.bat %RESOURCE_DIR%"
-      ]
-    }
-  ],
   "firestore": {
     "rules": "firestore.rules"
   }

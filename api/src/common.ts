@@ -1,9 +1,19 @@
+// Common primitives for API key generation/verification and Firebase Admin wiring.
+// This module centralizes:
+// - Firebase Admin initialization (project/credential resolution)
+// - Firestore/Auth handles
+// - Security helpers (pepper management, KMS wrappers)
+// - Key generation and hashing utilities
 import admin from 'firebase-admin';
 import { KeyManagementServiceClient } from '@google-cloud/kms';
 import argon2 from 'argon2';
 import { randomBytes, createHash } from 'node:crypto';
 
-// Initialize Admin SDK once. Prefer explicit service account on Render.
+// Initialize Firebase Admin SDK once. Prefer explicit service account on Render.
+// Credential resolution strategy, in order:
+// 1) FIREBASE_SERVICE_ACCOUNT_JSON (full JSON blob)
+// 2) Split FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY (with \n handling)
+// 3) GOOGLE_APPLICATION_CREDENTIALS (ADC), but pass projectId explicitly to avoid GCP metadata lookup
 if (!admin.apps.length) {
   const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
@@ -29,7 +39,7 @@ if (!admin.apps.length) {
 export const firestore = admin.firestore();
 export const auth = admin.auth();
 
-// Simple HTTP error for Express
+// Lightweight HTTP error for Express handlers that need custom status codes
 export class HttpError extends Error {
   status: number;
   code?: string;
@@ -41,13 +51,21 @@ export class HttpError extends Error {
 }
 
 // Secret/KMS helpers
+// Security note: APIKEY_PEPPER must be kept secret server-side and NEVER exposed to clients.
+// It is concatenated with the plaintext key prior to hashing, so even if the DB is leaked,
+// offline cracking requires both per-key salts and the server-only pepper.
+// APIKEY_PEPPER is cached to avoid repeated reads.
 let cachedPepper: Buffer | null = null;
 const kmsClient = new KeyManagementServiceClient();
 
 export async function getPepper(): Promise<Buffer> {
-  if (cachedPepper) return cachedPepper;
+  if (cachedPepper) {
+    return cachedPepper;
+  }
   const pepper = process.env.APIKEY_PEPPER;
-  if (!pepper) throw new HttpError(500, 'APIKEY_PEPPER not set');
+  if (!pepper) {
+    throw new HttpError(500, 'APIKEY_PEPPER not set');
+  }
   cachedPepper = Buffer.from(pepper);
   return cachedPepper;
 }
@@ -58,13 +76,8 @@ export async function encryptWithKms(kmsKeyResource: string, plaintext: Buffer):
   return Buffer.from(res.ciphertext as Uint8Array);
 }
 
-export async function decryptWithKms(kmsKeyResource: string, ciphertext: Buffer): Promise<Buffer> {
-  const [res] = await kmsClient.decrypt({ name: kmsKeyResource, ciphertext });
-  if (!res.plaintext) throw new HttpError(500, 'KMS decrypt returned empty plaintext');
-  return Buffer.from(res.plaintext as Uint8Array);
-}
-
 // Utils
+// Base32 helpers avoid ambiguous characters (e.g., 0/O, 1/l/I) to reduce human transcription errors.
 const AMBIGUOUS = new Set(['0', 'O', 'o', '1', 'I', 'l']);
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -73,7 +86,9 @@ export function generateBase32NoAmbiguous(length: number): string {
   const chars: string[] = [];
   for (let i = 0; i < buf.length && chars.length < length; i++) {
     const ch = BASE32_ALPHABET[buf[i] % BASE32_ALPHABET.length];
-    if (!AMBIGUOUS.has(ch)) chars.push(ch);
+    if (!AMBIGUOUS.has(ch)) {
+      chars.push(ch);
+    }
   }
   return chars.join('');
 }
@@ -90,6 +105,11 @@ export function computeChecksum(input: string): string {
   return out;
 }
 
+// Keys look like: ezk_<env>_<random>_<checksum>
+// - <env>: from RUNTIME_ENV (e.g., dev, prod)
+// - <random>: 26 base32 chars without ambiguous characters
+// - <checksum>: 8 base32 chars derived from sha256(core) to help detect typos
+// `prefix` is the first 12 chars for safer logs and UI display; the full plaintext is returned once only.
 export function buildApiKey(envName: string): { plaintext: string; prefix: string } {
   const body = generateBase32NoAmbiguous(26);
   const core = `ezk_${envName}_${body}`;
@@ -103,10 +123,15 @@ export function getEnvName(): string {
   return process.env.RUNTIME_ENV || 'prod';
 }
 
+// Verify Firebase auth using either Authorization: Bearer <ID_TOKEN> or __session cookie.
+// Performance note: verifyIdToken(bearer, true) adds revocation checks and can cost an extra network call.
+// If you do not require immediate token revocation, calling verifyIdToken(bearer) is faster.
 export async function requireAuth(req: any): Promise<string> {
   const headers = (req && req.headers) || {};
   const authz: string = (headers.authorization || headers.Authorization || '') as string;
-  const bearer = authz && typeof authz === 'string' && authz.startsWith('Bearer ')
+  const bearer = authz
+    && typeof authz === 'string'
+    && authz.startsWith('Bearer ')
     ? authz.substring('Bearer '.length)
     : '';
   if (bearer) {

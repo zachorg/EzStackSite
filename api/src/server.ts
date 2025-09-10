@@ -1,18 +1,25 @@
+// Entry point for the Render-hosted (or local) API server.
+// Exposes endpoints to create/list/revoke API keys backed by Firestore.
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { admin, firestore, requireAuth, buildApiKey, getEnvName, hashApiKey, encryptWithKms, HttpError } from './common';
 
+// Minimal Express server hosting API key endpoints
 const app = express();
 const port = Number(process.env.PORT || 4000);
+const corsOrigin = (process.env.CORS_ORIGIN as string | undefined) || true;
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: corsOrigin as any, credentials: true }));
 app.use(express.json());
 
+// Liveness probe
 app.get('/healthz', (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// Create a new API key for the authenticated user.
+// Steps: verify auth -> generate key -> argon2 hash -> optional KMS demo encrypt -> store in Firestore
 app.post('/createApiKey', async (req, res) => {
   try {
     const uid = await requireAuth(req);
@@ -22,6 +29,17 @@ app.post('/createApiKey', async (req, res) => {
 
     const { hashed, salt, params } = await hashApiKey(plaintext);
 
+    // Validate optional inputs
+    const rawName = typeof req.body?.name === 'string' ? String(req.body.name).trim() : '';
+    const name = rawName ? rawName.slice(0, 120) : undefined;
+    const rawScopes = Array.isArray(req.body?.scopes) ? (req.body.scopes as unknown[]) : [];
+    const scopes = rawScopes
+      .filter((s) => typeof s === 'string')
+      .map((s) => (s as string).trim())
+      .filter((s) => s.length)
+      .slice(0, 20);
+
+    // Persist only hashed key materials; plaintext is returned once and not stored
     const doc: any = {
       userId: uid,
       keyPrefix: prefix,
@@ -32,17 +50,15 @@ app.post('/createApiKey', async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       lastUsedAt: null,
       revokedAt: null,
-      ...(typeof req.body?.name === 'string' && req.body.name.trim()
-        ? { name: String(req.body.name).trim() }
-        : {}),
-      ...(Array.isArray(req.body?.scopes)
-        ? { scopes: (req.body.scopes as string[]).filter((s) => typeof s === 'string') }
-        : {}),
+      ...(name ? { name } : {}),
+      ...(scopes.length ? { scopes } : {}),
     };
 
     const kmsKey = process.env.KMS_KEY_RESOURCE;
+    const demoEnabled = process.env.DEMO_ENCRYPT_ENABLED === 'true';
     const isDemo = req.body?.demo === true;
-    if (isDemo && kmsKey) {
+    // Optional demo: store KMS-encrypted plaintext to allow later reveal in controlled demos
+    if (demoEnabled && isDemo && kmsKey) {
       const enc = await encryptWithKms(kmsKey, Buffer.from(plaintext));
       (doc as any).keyMaterialEnc = enc.toString('base64');
     }
@@ -64,6 +80,7 @@ app.post('/createApiKey', async (req, res) => {
   }
 });
 
+// List API keys for the authenticated user (limited to 100), newest first
 app.get('/listApiKeys', async (req, res) => {
   try {
     const uid = await requireAuth(req);
@@ -96,15 +113,21 @@ app.get('/listApiKeys', async (req, res) => {
   }
 });
 
+// Revoke (delete) an API key by id for the authenticated user.
+// Optimized path: simple get + ownership check + delete to reduce latency vs transactions
 app.post('/revokeApiKey', async (req, res) => {
   try {
     const uid = await requireAuth(req);
     const id = req.body?.id as string;
-    if (!id) throw new HttpError(400, 'Missing id', 'invalid-argument');
+    if (!id) {
+      throw new HttpError(400, 'Missing id', 'invalid-argument');
+    }
     console.log(JSON.stringify({ event: 'revokeApiKey.request', uid, keyId: id }));
     const ref = firestore.collection('apiKeys').doc(id);
     const snap = await ref.get();
-    if (!snap.exists) throw new HttpError(404, 'Key not found', 'not-found');
+    if (!snap.exists) {
+      throw new HttpError(404, 'Key not found', 'not-found');
+    }
     const data = snap.data() as any;
     if (data.userId !== uid) throw new HttpError(403, 'Forbidden', 'permission-denied');
     await ref.delete();

@@ -226,7 +226,7 @@ export default function AccountPage() {
       const user = auth.currentUser;
       if (!user) return;
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/keys", {
+      await fetch("/api/keys", {
         method: "DELETE",
         headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ id }),
@@ -336,7 +336,7 @@ export default function AccountPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white text-black rounded p-6 w-[32rem] max-w-full space-y-4">
             <h3 className="text-lg font-semibold">Your new API key</h3>
-            <p className="text-sm text-gray-700">Copy and store it now. You won't be able to see it again.</p>
+            <p className="text-sm text-gray-700">Copy and store it now. You won&apos;t be able to see it again.</p>
             <div className="flex items-center gap-2">
               <input
                 value={showPlainKey}

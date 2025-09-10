@@ -105,22 +105,17 @@ export function computeChecksum(input: string): string {
   return out;
 }
 
-// Keys look like: ezk_<env>_<random>_<checksum>
-// - <env>: from RUNTIME_ENV (e.g., dev, prod)
+// Keys look like: ezk_<random>_<checksum>
 // - <random>: 26 base32 chars without ambiguous characters
 // - <checksum>: 8 base32 chars derived from sha256(core) to help detect typos
 // `prefix` is the first 12 chars for safer logs and UI display; the full plaintext is returned once only.
-export function buildApiKey(envName: string): { plaintext: string; prefix: string } {
+export function buildApiKey(): { plaintext: string; prefix: string } {
   const body = generateBase32NoAmbiguous(26);
-  const core = `ezk_${envName}_${body}`;
+  const core = `ezk_${body}`;
   const checksum = computeChecksum(core);
   const plaintext = `${core}_${checksum}`;
   const prefix = plaintext.slice(0, 12);
   return { plaintext, prefix };
-}
-
-export function getEnvName(): string {
-  return process.env.RUNTIME_ENV || 'prod';
 }
 
 // Verify Firebase auth using either Authorization: Bearer <ID_TOKEN> or __session cookie.
@@ -172,12 +167,8 @@ export async function hashApiKey(plaintext: string): Promise<{ hashed: string; s
   const pepper = await getPepper();
   const saltBuf = randomBytes(16);
   const salt = saltBuf.toString('base64');
-  const envName = getEnvName();
-  const isProd = envName === 'prod';
-  // Ensure timeCost >= 2 to satisfy argon2 constraints
-  const params = isProd
-    ? { memoryCost: 19456, timeCost: 2, parallelism: 1 }
-    : { memoryCost: 1024, timeCost: 2, parallelism: 1 };
+  // Fixed Argon2id parameters (timeCost >= 2 to satisfy argon2 constraints)
+  const params = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
   const hashed = await argon2.hash(Buffer.concat([pepper, Buffer.from(plaintext)]), {
     type: argon2.argon2id,
     memoryCost: params.memoryCost,

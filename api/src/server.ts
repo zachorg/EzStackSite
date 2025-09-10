@@ -3,7 +3,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { admin, firestore, requireAuth, buildApiKey, getEnvName, hashApiKey, encryptWithKms, HttpError } from './common';
+import { admin, firestore, requireAuth, buildApiKey, hashApiKey, encryptWithKms, HttpError } from './common';
 
 // Minimal Express server hosting API key endpoints
 const app = express();
@@ -24,8 +24,7 @@ app.post('/createApiKey', async (req, res) => {
   try {
     const uid = await requireAuth(req);
     console.log(JSON.stringify({ event: 'createApiKey.request', uid }));
-    const envName = getEnvName();
-    const { plaintext, prefix } = buildApiKey(envName);
+    const { plaintext, prefix } = buildApiKey();
 
     const { hashed, salt, params } = await hashApiKey(plaintext);
 

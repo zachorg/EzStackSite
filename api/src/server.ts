@@ -103,14 +103,11 @@ app.post('/revokeApiKey', async (req, res) => {
     if (!id) throw new HttpError(400, 'Missing id', 'invalid-argument');
     console.log(JSON.stringify({ event: 'revokeApiKey.request', uid, keyId: id }));
     const ref = firestore.collection('apiKeys').doc(id);
-    // Use a transaction to verify ownership at delete time
-    await firestore.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) throw new HttpError(404, 'Key not found', 'not-found');
-      const data = snap.data() as any;
-      if (data.userId !== uid) throw new HttpError(403, 'Forbidden', 'permission-denied');
-      tx.delete(ref);
-    });
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpError(404, 'Key not found', 'not-found');
+    const data = snap.data() as any;
+    if (data.userId !== uid) throw new HttpError(403, 'Forbidden', 'permission-denied');
+    await ref.delete();
     console.log(JSON.stringify({ event: 'revokeApiKey.deleted', uid, keyId: id }));
     res.json({ ok: true, deleted: true });
   } catch (err: any) {

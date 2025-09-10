@@ -110,7 +110,7 @@ export async function requireAuth(req: any): Promise<string> {
     ? authz.substring('Bearer '.length)
     : '';
   if (bearer) {
-    const decoded = await auth.verifyIdToken(bearer, true);
+    const decoded = await auth.verifyIdToken(bearer);
     return decoded.uid;
   }
   const rawCookie: string = (headers.cookie || headers.Cookie || '') as string;

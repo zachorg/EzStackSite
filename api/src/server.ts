@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { admin, firestore, requireAuth, buildApiKey, getEnvName, hashApiKey, encryptWithKms, HttpError } from './common';

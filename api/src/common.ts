@@ -6,19 +6,23 @@ import { randomBytes, createHash } from 'node:crypto';
 // Initialize Admin SDK once. Prefer explicit service account on Render.
 if (!admin.apps.length) {
   const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
   if (saJson) {
-    const credential = admin.credential.cert(JSON.parse(saJson));
-    admin.initializeApp({ credential });
+    const parsed = JSON.parse(saJson);
+    const credential = admin.credential.cert(parsed);
+    admin.initializeApp({ credential, projectId: parsed.project_id || projectId });
   } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
     const credential = admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     });
-    admin.initializeApp({ credential });
+    admin.initializeApp({ credential, projectId: process.env.FIREBASE_PROJECT_ID });
+  } else if (projectId) {
+    // Falls back to ADC if available (e.g., GOOGLE_APPLICATION_CREDENTIALS), but pass projectId explicitly
+    admin.initializeApp({ projectId });
   } else {
-    // Falls back to ADC if available (e.g., GOOGLE_APPLICATION_CREDENTIALS)
-    admin.initializeApp();
+    throw new Error('Missing Firebase project configuration. Set FIREBASE_PROJECT_ID and service account credentials.');
   }
 }
 
@@ -145,9 +149,10 @@ export async function hashApiKey(plaintext: string): Promise<{ hashed: string; s
   const salt = saltBuf.toString('base64');
   const envName = getEnvName();
   const isProd = envName === 'prod';
+  // Ensure timeCost >= 2 to satisfy argon2 constraints
   const params = isProd
     ? { memoryCost: 19456, timeCost: 2, parallelism: 1 }
-    : { memoryCost: 1024, timeCost: 1, parallelism: 1 };
+    : { memoryCost: 1024, timeCost: 2, parallelism: 1 };
   const hashed = await argon2.hash(Buffer.concat([pepper, Buffer.from(plaintext)]), {
     type: argon2.argon2id,
     memoryCost: params.memoryCost,

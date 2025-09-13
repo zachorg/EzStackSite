@@ -6,7 +6,7 @@ export function functionsBaseUrl(): string {
   return base.replace(/\/$/, "");
 }
 
-type HttpMethod = "GET" | "POST";
+type HttpMethod = "GET" | "POST" | "DELETE";
 
 // Minimal proxy that forwards auth header to the external API and returns JSON responses.
 async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
@@ -19,11 +19,13 @@ async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
       headers: { "content-type": "application/json", authorization: authz },
       cache: "no-store",
     };
-    if (method === "POST") {
+    if (method === "POST" || method === "DELETE") {
       const body = await req.json().catch(() => ({} as Record<string, unknown>));
       (init as RequestInit & { body?: string }).body = JSON.stringify(body ?? {});
     }
-    const url = `${base}${fnPath}`;
+    // Preserve incoming query string if present
+    const search = req.nextUrl?.search || "";
+    const url = `${base}${fnPath}${search ? (fnPath.includes("?") ? `&${search.slice(1)}` : search) : ""}`;
     const res = await fetch(url, init);
     const text = await res.text();
     let data: unknown = {};
@@ -46,6 +48,10 @@ export function proxyGet(fnPath: string, req: NextRequest) {
 
 export function proxyPost(fnPath: string, req: NextRequest) {
   return forward("POST", fnPath, req);
+}
+
+export function proxyDelete(fnPath: string, req: NextRequest) {
+  return forward("DELETE", fnPath, req);
 }
 
 

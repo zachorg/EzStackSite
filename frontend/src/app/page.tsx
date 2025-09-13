@@ -10,7 +10,7 @@ import { CtaBand } from "./components/cta-band";
 export default async function Home() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("__session")?.value;
-  let _isLoggedIn = false;
+  let _isLoggedIn = false; // used to influence rendering in future; retained for now
   if (sessionCookie) {
     try {
       await adminAuth.verifySessionCookie(sessionCookie, true);

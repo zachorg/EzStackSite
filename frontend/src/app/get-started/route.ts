@@ -8,17 +8,17 @@ export async function GET(req: NextRequest) {
   const sessionCookie = cookieStore.get("__session")?.value;
   if (!sessionCookie) {
     url.pathname = "/login";
-    url.searchParams.set("redirect", "/account");
+    url.searchParams.set("redirect", "/api-keys");
     return NextResponse.redirect(url);
   }
   try {
     await adminAuth.verifySessionCookie(sessionCookie, true);
-    url.pathname = "/account";
+    url.pathname = "/api-keys";
     url.searchParams.delete("redirect");
     return NextResponse.redirect(url);
   } catch {
     url.pathname = "/login";
-    url.searchParams.set("redirect", "/account");
+    url.searchParams.set("redirect", "/api-keys");
     return NextResponse.redirect(url);
   }
 }

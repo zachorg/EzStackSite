@@ -2,7 +2,7 @@
 // Move complex checks to server components/actions; keep middleware fast.
 import { NextRequest, NextResponse } from "next/server";
 
-const protectedPrefixes = ["/account"];
+const protectedPrefixes = ["/api-keys"];
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -26,7 +26,7 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/account"],
+  matcher: ["/api-keys"],
 };
 
 

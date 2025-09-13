@@ -21,7 +21,7 @@ function formatDate(value: KeyItem["createdAt"]) {
   return "—";
 }
 
-function useKeys() {
+function useKeys(tenantId: string | null) {
   const [items, setItems] = useState<KeyItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,8 @@ function useKeys() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiKeys.list();
+      if (!tenantId) throw new ApiError("Sign in to view keys", 400);
+      const res = await apiKeys.list(tenantId);
       setItems(res.items ?? []);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to load";
@@ -42,19 +43,18 @@ function useKeys() {
 
   useEffect(() => {
     void reload();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
   return { items, loading, error, reload };
 }
 
-function CreateKeySection({ onCreated }: { onCreated: (opts: { key: string; keyPrefix: string }) => void }) {
+function CreateKeySection({ tenantId, onCreated, disabled }: { tenantId: string | null; onCreated: (opts: { key: string; keyPrefix: string }) => void; disabled?: boolean }) {
   const [name, setName] = useState("");
-  const [scopesInput, setScopesInput] = useState("");
-  const [demo, setDemo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = !submitting;
+  const canSubmit = !submitting && Boolean(tenantId) && !disabled;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,22 +62,14 @@ function CreateKeySection({ onCreated }: { onCreated: (opts: { key: string; keyP
     setSubmitting(true);
     setError(null);
     try {
-      const scopesArray = scopesInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .slice(0, 20);
       const payload: CreateApiKeyRequest = {
+        tenantId: tenantId!,
         name: name.trim() ? name.trim().slice(0, 120) : undefined,
-        scopes: scopesArray.length ? scopesArray : undefined,
-        demo: demo || undefined,
       };
       const res = await apiKeys.create(payload);
       // Do not log or persist res.key
       onCreated({ key: res.key, keyPrefix: res.keyPrefix });
       setName("");
-      setScopesInput("");
-      setDemo(false);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to create key";
       setError(msg);
@@ -106,21 +98,6 @@ function CreateKeySection({ onCreated }: { onCreated: (opts: { key: string; keyP
             className="mt-1 w-full rounded border px-2 py-1"
             placeholder="e.g., CI Deploy Key"
           />
-        </div>
-        <div className="sm:col-span-1">
-          <label htmlFor="key-scopes" className="block text-sm font-medium">Scopes (comma-separated, optional)</label>
-          <input
-            id="key-scopes"
-            type="text"
-            value={scopesInput}
-            onChange={(e) => setScopesInput(e.target.value)}
-            className="mt-1 w-full rounded border px-2 py-1"
-            placeholder="read, write"
-          />
-        </div>
-        <div className="sm:col-span-2 flex items-center gap-2">
-          <input id="key-demo" type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
-          <label htmlFor="key-demo" className="text-sm">Demo key</label>
         </div>
         <div className="sm:col-span-2">
           <button
@@ -243,12 +220,31 @@ function CreatedKeyPanel({ keyValue, keyPrefix, onDismiss }: { keyValue: string;
   );
 }
 
+function useTenantSelection() {
+  // Simplified: tenant is the signed-in user by default.
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { getClientAuth } = await import("@/lib/firebase/client");
+        const auth = await getClientAuth();
+        setTenantId(auth.currentUser?.uid ?? null);
+      } catch {
+        setTenantId(null);
+      }
+    })();
+  }, []);
+  return { tenantId };
+}
+
 export default function ApiKeysPage() {
-  const { items, loading, error, reload } = useKeys();
+  const { tenantId } = useTenantSelection();
+  const { items, loading, error, reload } = useKeys(tenantId);
   const [created, setCreated] = useState<{ key: string; keyPrefix: string } | null>(null);
   const [confirm, setConfirm] = useState<{ id: string; keyPrefix: string } | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Roles are not needed with single-tenant-per-user simplification
 
   const onCreated = (k: { key: string; keyPrefix: string }) => {
     // Show the key panel first; refresh the list after user dismisses
@@ -281,7 +277,9 @@ export default function ApiKeysPage() {
         <h1 className="text-2xl font-bold">API Keys</h1>
       </header>
 
-      <CreateKeySection onCreated={onCreated} />
+      {/* Tenant is the signed-in user; no selector needed */}
+
+      <CreateKeySection tenantId={tenantId} onCreated={onCreated} disabled={!tenantId || (role !== "owner" && role !== "admin")} />
 
       {created ? (
         <CreatedKeyPanel
@@ -306,7 +304,7 @@ export default function ApiKeysPage() {
           <div role="alert" aria-live="assertive" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</div>
         ) : null}
         {items ? (
-          <KeysTable items={items} onRevoke={onRevokeRequested} revokingId={revokingId} />
+          <KeysTable items={items} onRevoke={onRevokeRequested} revokingId={revokingId} canManage={role === "owner" || role === "admin"} />
         ) : (
           <div className="text-sm text-gray-600">{loading ? "Loading…" : ""}</div>
         )}

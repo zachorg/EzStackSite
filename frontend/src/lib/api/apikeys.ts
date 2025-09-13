@@ -3,9 +3,8 @@ import { api } from "./client";
 export type TimestampLike = { seconds: number; nanos?: number } | string | number | null;
 
 export type CreateApiKeyRequest = {
+  tenantId: string;
   name?: string;
-  scopes?: string[];
-  demo?: boolean;
 };
 
 export type CreateApiKeyResponse = {
@@ -33,11 +32,11 @@ export type RevokeApiKeyResponse = { ok: true; deleted: true };
 
 export const apiKeys = {
   create(input: CreateApiKeyRequest) {
-    // Use local Next.js route to carry Authorization securely
     return api.post<CreateApiKeyResponse>("/api/keys", input);
   },
-  list() {
-    return api.get<ListApiKeysResponse>("/api/keys");
+  list(tenantId: string) {
+    const qs = new URLSearchParams({ tenantId }).toString();
+    return api.get<ListApiKeysResponse>(`/api/keys?${qs}`);
   },
   revoke(id: string) {
     return api.delete<RevokeApiKeyResponse>("/api/keys", { id });

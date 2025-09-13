@@ -32,14 +32,14 @@ export type RevokeApiKeyResponse = { ok: true; deleted: true };
 
 export const apiKeys = {
   create(input: CreateApiKeyRequest) {
-    return api.post<CreateApiKeyResponse>("/api/keys", input);
+    return api.post<CreateApiKeyResponse>("/api/keys", input, { "x-tenant-id": input.tenantId });
   },
   list(tenantId: string) {
     const qs = new URLSearchParams({ tenantId }).toString();
-    return api.get<ListApiKeysResponse>(`/api/keys?${qs}`);
+    return api.get<ListApiKeysResponse>(`/api/keys?${qs}`, { "x-tenant-id": tenantId });
   },
-  revoke(id: string) {
-    return api.delete<RevokeApiKeyResponse>("/api/keys", { id });
+  revoke(id: string, tenantId?: string) {
+    return api.delete<RevokeApiKeyResponse>("/api/keys", { id }, tenantId ? { "x-tenant-id": tenantId } : undefined);
   },
 };
 

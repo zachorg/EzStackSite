@@ -25,6 +25,7 @@ export async function getIdToken(): Promise<string> {
 }
 
 type Json = Record<string, unknown> | undefined;
+type HeaderMap = Record<string, string> | undefined;
 
 async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const idToken = await getIdToken();
@@ -55,15 +56,15 @@ async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  get<T>(path: string): Promise<T> {
-    return apiFetch<T>(path, { method: "GET" });
+  get<T>(path: string, headers?: HeaderMap): Promise<T> {
+    return apiFetch<T>(path, { method: "GET", headers });
   },
-  post<T>(path: string, body?: Json): Promise<T> {
-    return apiFetch<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
+  post<T>(path: string, body?: Json, headers?: HeaderMap): Promise<T> {
+    return apiFetch<T>(path, { method: "POST", body: JSON.stringify(body ?? {}), headers });
   },
-  delete<T>(path: string, body?: Json): Promise<T> {
+  delete<T>(path: string, body?: Json, headers?: HeaderMap): Promise<T> {
     // Next.js route supports DELETE with a JSON body
-    return apiFetch<T>(path, { method: "DELETE", body: JSON.stringify(body ?? {}) });
+    return apiFetch<T>(path, { method: "DELETE", body: JSON.stringify(body ?? {}), headers });
   },
 };
 

@@ -14,9 +14,14 @@ async function forward(method: HttpMethod, fnPath: string, req: NextRequest) {
   if (!authz) return NextResponse.json({ error: { code: "unauthorized", message: "Login required" } }, { status: 401 });
   try {
     const base = functionsBaseUrl();
+    const xTenantId = req.headers.get("x-tenant-id");
     const init: RequestInit = {
       method,
-      headers: { "content-type": "application/json", authorization: authz },
+      headers: {
+        "content-type": "application/json",
+        authorization: authz,
+        ...(xTenantId ? { "x-tenant-id": xTenantId } : {}),
+      },
       cache: "no-store",
     };
     if (method === "POST") {

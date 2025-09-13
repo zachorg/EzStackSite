@@ -27,10 +27,10 @@ function useKeys(tenantId: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   const reload = async () => {
+    if (!tenantId) return;
     setLoading(true);
     setError(null);
     try {
-      if (!tenantId) throw new ApiError("Sign in to view keys", 400);
       const res = await apiKeys.list(tenantId);
       setItems(res.items ?? []);
     } catch (err) {
@@ -42,19 +42,22 @@ function useKeys(tenantId: string | null) {
   };
 
   useEffect(() => {
-    void reload();
+    if (tenantId) void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
   return { items, loading, error, reload };
 }
 
-function CreateKeySection({ tenantId, onCreated, disabled }: { tenantId: string | null; onCreated: (opts: { key: string; keyPrefix: string }) => void; disabled?: boolean }) {
+function CreateKeySection({ tenantId, onCreated, disabled, existingNames }: { tenantId: string | null; onCreated: (opts: { key: string; keyPrefix: string }) => void; disabled?: boolean; existingNames?: string[] }) {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = !submitting && Boolean(tenantId) && !disabled;
+  const normalizedExisting = (existingNames || []).map((n) => n.trim().toLowerCase()).filter(Boolean);
+  const trimmed = name.trim();
+  const isDuplicate = trimmed ? normalizedExisting.includes(trimmed.toLowerCase()) : false;
+  const canSubmit = !submitting && !disabled && !isDuplicate;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,9 +65,21 @@ function CreateKeySection({ tenantId, onCreated, disabled }: { tenantId: string 
     setSubmitting(true);
     setError(null);
     try {
+      let resolvedTenantId = tenantId;
+      if (!resolvedTenantId) {
+        try {
+          const { getClientAuth } = await import("@/lib/firebase/client");
+          const auth = await getClientAuth();
+          resolvedTenantId = auth.currentUser?.uid ?? null;
+        } catch {}
+      }
+      if (!resolvedTenantId) {
+        setError("Sign in to create a key");
+        return;
+      }
       const payload: CreateApiKeyRequest = {
-        tenantId: tenantId!,
-        name: name.trim() ? name.trim().slice(0, 120) : undefined,
+        tenantId: resolvedTenantId,
+        name: trimmed ? trimmed.slice(0, 120) : undefined,
       };
       const res = await apiKeys.create(payload);
       // Do not log or persist res.key
@@ -95,9 +110,13 @@ function CreateKeySection({ tenantId, onCreated, disabled }: { tenantId: string 
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
-            className="mt-1 w-full rounded border px-2 py-1"
+            aria-invalid={isDuplicate}
+            className={cn("mt-1 w-full rounded border px-2 py-1", isDuplicate ? "border-red-500" : "")}
             placeholder="e.g., CI Deploy Key"
           />
+          {isDuplicate ? (
+            <p className="mt-1 text-xs text-red-600">This name is already used</p>
+          ) : null}
         </div>
         <div className="sm:col-span-2">
           <button
@@ -224,15 +243,23 @@ function useTenantSelection() {
   // Simplified: tenant is the signed-in user by default.
   const [tenantId, setTenantId] = useState<string | null>(null);
   useEffect(() => {
+    let unsub: (() => void) | undefined;
     (async () => {
       try {
         const { getClientAuth } = await import("@/lib/firebase/client");
         const auth = await getClientAuth();
+        // Ensure tenant exists and membership is set; server will no-op if already present
+        try { await fetch("/api/tenants/bootstrap", { method: "POST", cache: "no-store" }); } catch {}
         setTenantId(auth.currentUser?.uid ?? null);
+        const { onAuthStateChanged } = await import("firebase/auth");
+        unsub = onAuthStateChanged(auth, (user) => {
+          setTenantId(user?.uid ?? null);
+        });
       } catch {
         setTenantId(null);
       }
     })();
+    return () => { if (unsub) unsub(); };
   }, []);
   return { tenantId };
 }
@@ -260,7 +287,7 @@ export default function ApiKeysPage() {
     setActionError(null);
     setRevokingId(confirm.id);
     try {
-      await apiKeys.revoke(confirm.id);
+      await apiKeys.revoke(confirm.id, tenantId ?? undefined);
       setConfirm(null);
       await reload();
     } catch (err) {
@@ -279,7 +306,12 @@ export default function ApiKeysPage() {
 
       {/* Tenant is the signed-in user; no selector needed */}
 
-      <CreateKeySection tenantId={tenantId} onCreated={onCreated} disabled={!tenantId || (role !== "owner" && role !== "admin")} />
+      <CreateKeySection
+        tenantId={tenantId}
+        onCreated={onCreated}
+        disabled={!tenantId}
+        existingNames={(items || []).map((it) => (it.name || "").trim()).filter(Boolean)}
+      />
 
       {created ? (
         <CreatedKeyPanel
@@ -304,7 +336,7 @@ export default function ApiKeysPage() {
           <div role="alert" aria-live="assertive" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</div>
         ) : null}
         {items ? (
-          <KeysTable items={items} onRevoke={onRevokeRequested} revokingId={revokingId} canManage={role === "owner" || role === "admin"} />
+          <KeysTable items={items} onRevoke={onRevokeRequested} revokingId={revokingId} />
         ) : (
           <div className="text-sm text-gray-600">{loading ? "Loading…" : ""}</div>
         )}

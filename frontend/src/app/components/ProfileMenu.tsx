@@ -36,14 +36,8 @@ export default function ProfileMenu() {
   // Sign out handler - ends session and redirects to home
   async function signOut() {
     try {
-      // Clear server cookie and sign out of Firebase client auth
+      // Clear server cookie and sign out of Supabase
       await fetch("/api/session/end", { method: "POST", credentials: "include" });
-      try {
-        const { getClientAuth } = await import("@/lib/firebase/client");
-        const auth = await getClientAuth();
-        const { signOut: fbSignOut } = await import("firebase/auth");
-        await fbSignOut(auth);
-      } catch {}
       window.location.assign("/");
     } catch {}
   }

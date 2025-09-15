@@ -1,27 +1,13 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { adminAuth, db } from "@/lib/firebase/admin";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("__session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: { message: "Login required" } }, { status: 401 });
-    }
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    const uid = decoded.uid;
-
-    const tenantRef = db.collection("tenants").doc(uid);
-    const tenantSnap = await tenantRef.get();
-    if (!tenantSnap.exists) {
-      await tenantRef.set({ status: "active", createdAt: new Date(), createdBy: uid }, { merge: true });
-    }
-    const memberRef = tenantRef.collection("members").doc(uid);
-    const memberSnap = await memberRef.get();
-    if (!memberSnap.exists) {
-      await memberRef.set({ role: "owner", addedAt: new Date() }, { merge: true });
-    }
+    const supabase = supabaseServer();
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id;
+    if (!uid) return NextResponse.json({ error: { message: "Login required" } }, { status: 401 });
+    // For Supabase, no-op: tenants are implicit (user == tenant). Create rows during key creation if needed.
     return NextResponse.json({ ok: true, tenantId: uid });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Bootstrap error";

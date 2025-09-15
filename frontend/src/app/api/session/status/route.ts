@@ -1,18 +1,13 @@
 // Lightweight endpoint used by the UI to check if a valid session cookie exists.
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
-import { cookies } from "next/headers";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return NextResponse.json({ loggedIn: false });
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return NextResponse.json({ loggedIn: true, uid: decoded.uid });
-  } catch {
-    return NextResponse.json({ loggedIn: false });
-  }
+  const supabase = await supabaseServer();
+  const { data } = await supabase.auth.getUser();
+  const user = data?.user;
+  if (!user) return NextResponse.json({ loggedIn: false });
+  return NextResponse.json({ loggedIn: true, uid: user.id });
 }
 
 

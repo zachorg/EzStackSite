@@ -1,7 +1,7 @@
-// Lightweight API client with Firebase ID token auth and typed helpers
+// Lightweight API client with Supabase ID token auth and typed helpers
 // NOTE: Do not log or persist plaintext API keys. Only use keyPrefix beyond creation.
 
-import { getClientAuth } from "@/lib/firebase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export type ApiErrorEnvelope = { error?: { message?: string } };
 
@@ -15,12 +15,10 @@ export class ApiError extends Error {
 }
 
 export async function getIdToken(): Promise<string> {
-  const auth = await getClientAuth();
-  const user = auth.currentUser;
-  if (!user) throw new ApiError("Login required", 401);
-  // Force refresh=false to avoid unnecessary network when not needed.
-  const token = await user.getIdToken(false);
-  if (!token) throw new ApiError("Failed to acquire auth token", 401);
+  const supabase = supabaseBrowser();
+  const session = (await supabase.auth.getSession()).data.session;
+  const token = session?.access_token || "";
+  if (!token) throw new ApiError("Login required", 401);
   return token;
 }
 

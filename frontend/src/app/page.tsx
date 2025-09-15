@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { adminAuth } from "@/lib/firebase/admin";
+import { supabaseServer } from "@/lib/supabase/server";
 import { AuroraBackground } from "./components/aurora-background";
 import { CodeExample } from "./components/code-example";
 import { BentoGrid } from "./components/bento-grid";
@@ -8,15 +7,9 @@ import { Section } from "./components/section";
 import { CtaBand } from "./components/cta-band";
 
 export default async function Home() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  let _isLoggedIn = false; // used to influence rendering in future; retained for now
-  if (sessionCookie) {
-    try {
-      await adminAuth.verifySessionCookie(sessionCookie, true);
-      _isLoggedIn = true;
-    } catch {}
-  }
+  const supabase = await supabaseServer();
+  const { data } = await supabase.auth.getUser();
+  const _isLoggedIn = Boolean(data.user);
 
   return (
     <div className="relative font-sans space-y-16">
@@ -66,7 +59,7 @@ export default async function Home() {
           </li>
           <li className="rounded-lg border border-black/[.08] dark:border-white/[.145] p-4">
             <p className="font-medium mb-1">Send & verify</p>
-            <p className="text-foreground/75">Use the Firebase proxy to send and verify one-time codes.</p>
+            <p className="text-foreground/75">Use the Supabase proxy to send and verify one-time codes.</p>
           </li>
           <li className="rounded-lg border border-black/[.08] dark:border-white/[.145] p-4">
             <p className="font-medium mb-1">Handle cooldown</p>

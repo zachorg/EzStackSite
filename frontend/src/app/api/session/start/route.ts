@@ -1,57 +1,35 @@
-// Creates a signed session cookie from a Firebase ID token.
+// Creates a signed session cookie from a Supabase ID token.
 // Called after client completes Google or Email/Password sign-in.
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
+import { supabaseRoute } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const idToken = String(body?.idToken || "").trim();
-    if (!idToken) {
-      return NextResponse.json(
-        { error: { code: "invalid_request", message: "Missing idToken" } },
-        { status: 400 }
-      );
+    const supabase = supabaseRoute();
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const email = String((body as { email?: string }).email || "").trim();
+    const password = String((body as { password?: string }).password || "").trim();
+    const provider = String((body as { provider?: string }).provider || "").trim();
+
+    if (email && password) {
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return NextResponse.json({ error: { code: "unauthorized", message: error.message } }, { status: 401 });
+      return NextResponse.json({ ok: true, uid: data.user?.id });
     }
 
-    let decoded: import("firebase-admin/auth").DecodedIdToken;
-    try {
-      decoded = await adminAuth.verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json(
-        { error: { code: "unauthorized", message: "Invalid or expired sign-in token" } },
-        { status: 401 }
-      );
-    }
-    const expiresInMs = 60 * 60 * 24 * 5 * 1000; // 5 days
-    let sessionCookie: string;
-    try {
-      sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: expiresInMs });
-    } catch (e) {
-      const isDev = process.env.NODE_ENV !== "production";
-      const detail = e instanceof Error ? e.message : String(e);
-      return NextResponse.json(
-        {
-          error: {
-            code: "internal_error",
-            message: "Session creation failed",
-            ...(isDev ? { detail } : {}),
-          },
-        },
-        { status: 500 }
-      );
+    if (provider) {
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider: provider as any });
+      if (error) return NextResponse.json({ error: { code: "unauthorized", message: error.message } }, { status: 401 });
+      return NextResponse.json({ ok: true, url: data?.url });
     }
 
-    const res = NextResponse.json({ ok: true, uid: decoded.uid });
-    res.cookies.set("__session", sessionCookie, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: Math.floor(expiresInMs / 1000),
-    });
+    if (email) {
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) return NextResponse.json({ error: { code: "unauthorized", message: error.message } }, { status: 401 });
+      return NextResponse.json({ ok: true });
+    }
 
-    return res;
+    return NextResponse.json({ error: { code: "invalid_request", message: "Provide email/password, provider, or email for OTP" } }, { status: 400 });
   } catch (err) {
     const isDev = process.env.NODE_ENV !== "production";
     const detail = err instanceof Error ? err.message : String(err);

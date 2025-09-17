@@ -2,10 +2,10 @@ EzStack Console: Frontend for EzStack OTP/OTE and future modules.
 
 Quickstart
 
-1. Set environment variables (optional):
+1. Set environment variables:
 
-   - Firebase client config: `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-   - Firebase Admin creds for local dev: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+   - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Optional external API base: `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://127.0.0.1:4000`)
 
 2. Run the dev server:
 
@@ -15,14 +15,14 @@ npm run dev
 
 3. In the app:
 
-   - Sign in at `/login`, then go to `/account` to generate an API key. Keys are displayed once and not stored in plaintext.
-   - Configure your project in `/settings`. OTP/OTE playground has been removed from the UI.
+   - Sign in at `/login`, then go to `/api-keys` to generate an API key. Keys are displayed once and not stored in plaintext.
+   - Configure your project in `/settings` as needed.
 
 Implementation notes
 
-- All browser requests go to Firebase HTTPS Functions at `/api/proxy/*` with `Authorization: Bearer <Firebase ID token>`.
-- The proxy forwards to EzStack API over TLS and may inject `x-ezauth-key` or an ephemeral token; no CORS is required on the API.
-- Rate-limit headers like `Retry-After` and `X-RateLimit-Reset` should be surfaced by the proxy for UX.
+- Auth is handled via Supabase cookies. Use `@/lib/supabase/server` in route handlers and server components, and `@/lib/supabase/client` in the browser.
+- API key routes under `src/app/api/keys/route.ts` proxy to `NEXT_PUBLIC_API_BASE_URL` and forward `Authorization: Bearer <Supabase access token>`.
+- Rate-limit headers like `Retry-After` and `X-RateLimit-Reset` from the external API should be surfaced by the proxy for UX.
 
 Adding a product tile
 

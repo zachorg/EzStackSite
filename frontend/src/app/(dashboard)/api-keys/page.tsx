@@ -68,9 +68,10 @@ function CreateKeySection({ tenantId, onCreated, disabled, existingNames }: { te
       let resolvedTenantId = tenantId;
       if (!resolvedTenantId) {
         try {
-          const { getClientAuth } = await import("@/lib/firebase/client");
-          const auth = await getClientAuth();
-          resolvedTenantId = auth.currentUser?.uid ?? null;
+          const { supabaseBrowser } = await import("@/lib/supabase/client");
+          const supabase = supabaseBrowser();
+          const { data } = await supabase.auth.getUser();
+          resolvedTenantId = data.user?.id ?? null;
         } catch {}
       }
       if (!resolvedTenantId) {
@@ -246,15 +247,17 @@ function useTenantSelection() {
     let unsub: (() => void) | undefined;
     (async () => {
       try {
-        const { getClientAuth } = await import("@/lib/firebase/client");
-        const auth = await getClientAuth();
-        // Ensure tenant exists and membership is set; server will no-op if already present
+        const { supabaseBrowser } = await import("@/lib/supabase/client");
+        const supabase = supabaseBrowser();
         try { await fetch("/api/tenants/bootstrap", { method: "POST", cache: "no-store" }); } catch {}
-        setTenantId(auth.currentUser?.uid ?? null);
-        const { onAuthStateChanged } = await import("firebase/auth");
-        unsub = onAuthStateChanged(auth, (user) => {
-          setTenantId(user?.uid ?? null);
+        const { data: initial } = await supabase.auth.getUser();
+        setTenantId(initial.user?.id ?? null);
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+          setTenantId(session?.user?.id ?? null);
         });
+        unsub = () => subscription.unsubscribe();
       } catch {
         setTenantId(null);
       }

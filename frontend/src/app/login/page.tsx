@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getClientAuth, getGoogleProvider } from "@/lib/firebase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -16,66 +16,32 @@ export default function LoginPage() {
     if (r) setRedirect(r);
   }, []);
 
-  // Sign in with Google using a popup, then exchange the ID token for a session cookie.
+  // Sign in with Google using Supabase OAuth (redirect flow).
   async function signInGoogle() {
     setLoading(true);
     setMessage(null);
     try {
-      const auth = await getClientAuth();
-      const provider = await getGoogleProvider();
-      const { signInWithPopup } = await import("firebase/auth");
-      const cred = await signInWithPopup(auth, provider);
-      const idToken = await cred.user.getIdToken(true);
-      const res = await fetch("/api/session/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const detail = data?.error?.detail ? ` (${data.error.detail})` : "";
-        setMessage((data?.error?.message || "Failed to create session") + detail);
-      } else {
-        window.location.href = redirect || "/";
-      }
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
+      if (error) setMessage(error.message);
     } catch (e) {
-      setMessage(
-        e instanceof Error ? e.message : "Sign-in failed. Check Firebase config env vars."
-      );
+      setMessage(e instanceof Error ? e.message : "Sign-in failed.");
     } finally {
       setLoading(false);
     }
   }
 
-  // Helper to exchange the currently signed-in Firebase user for a server session.
-  async function startSessionWithCurrentUser() {
-    const auth = await getClientAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("No authenticated user");
-    const idToken = await currentUser.getIdToken(true);
-    const res = await fetch("/api/session/start", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ idToken }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      const detail = data?.error?.detail ? ` (${data.error.detail})` : "";
-      throw new Error((data?.error?.message || "Failed to create session") + detail);
-    }
-  }
+  // With Supabase, sessions are managed by cookies automatically.
+  async function startSessionWithCurrentUser() {}
 
   // Create an account with email/password and start a session.
   async function signUpWithEmailPassword() {
     setLoading(true);
     setMessage(null);
     try {
-      const auth = await getClientAuth();
-      const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await startSessionWithCurrentUser();
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+      if (error) throw error;
       window.location.href = redirect || "/";
     } catch (e) {
       setMessage(
@@ -91,10 +57,9 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const auth = await getClientAuth();
-      const { signInWithEmailAndPassword } = await import("firebase/auth");
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      await startSessionWithCurrentUser();
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
       window.location.href = redirect || "/";
     } catch (e) {
       setMessage(

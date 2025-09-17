@@ -70,9 +70,6 @@ web_modules/
 .env.*
 !.env.example
 
-# Firebase config file
-firebase-web/firebase-config.js
-
 secrets/
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -120,9 +117,6 @@ dist
 
 # DynamoDB Local files
 .dynamodb/
-
-# Firebase cache directory
-.firebase/
 
 # TernJS port file
 .tern-port
